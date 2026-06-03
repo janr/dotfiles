@@ -48,7 +48,7 @@ Super-key driven workflow where possible.
 - Supports `SUPER+Left/Right` for workspace navigation and
   `SUPER+SHIFT+Left/Right` for moving the focused window between workspaces.
 - Supports `SUPER+CTRL+R` to reload Hyprland and reconcile workspace state.
-- Uses `hyprpaper` with the bundled `dark_cubes.jpg` wallpaper on `eDP-1`.
+- Uses `hyprpaper` with the bundled `dark_cubes.jpg` wallpaper as the fallback for all displays.
 
 ## Waybar Features
 
