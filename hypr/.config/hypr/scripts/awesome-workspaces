@@ -1,0 +1,194 @@
+#!/bin/sh
+
+laptop=eDP-1
+
+focused_monitor() {
+    hyprctl monitors | awk '
+        /^Monitor / { monitor = $2 }
+        /focused: yes/ { print monitor; found = 1; exit }
+        END { if (!found) print "eDP-1" }
+    '
+}
+
+external_monitor() {
+    hyprctl monitors | awk -v laptop="$laptop" '
+        /^Monitor / && $2 != laptop { print $2; exit }
+    '
+}
+
+active_workspace_id() {
+    hyprctl monitors | awk '
+        /^Monitor / { active = "" }
+        /active workspace:/ { active = $3 }
+        /focused: yes/ { print active; exit }
+    '
+}
+
+workspace_for_key() {
+    key="$1"
+    monitor="$(focused_monitor)"
+
+    if [ "$monitor" = "$laptop" ]; then
+        echo "$key"
+    else
+        echo $((key + 9))
+    fi
+}
+
+move_workspace_windows() {
+    from="$1"
+    to="$2"
+
+    hyprctl clients | awk -v from="$from" '
+        /^Window / { address = $2 }
+        /workspace:/ && $2 == from { print address }
+    ' | while read -r address; do
+        [ -n "$address" ] && hyprctl dispatch movetoworkspacesilent "$to,address:$address" >/dev/null
+    done
+}
+
+reconcile() {
+    external="$(external_monitor)"
+
+    i=1
+    while [ "$i" -le 9 ]; do
+        if [ "$i" -eq 1 ]; then
+            hyprctl keyword workspace "$i, monitor:$laptop, persistent:true, default:true" >/dev/null
+        else
+            hyprctl keyword workspace "$i, monitor:$laptop, persistent:true" >/dev/null
+        fi
+        i=$((i + 1))
+    done
+
+    i=10
+    while [ "$i" -le 18 ]; do
+        if [ -n "$external" ]; then
+            if [ "$i" -eq 10 ]; then
+                hyprctl keyword workspace "$i, monitor:$external, persistent:true, default:true" >/dev/null
+            else
+                hyprctl keyword workspace "$i, monitor:$external, persistent:true" >/dev/null
+            fi
+            hyprctl dispatch moveworkspacetomonitor "$i $external" >/dev/null 2>&1 || true
+        else
+            move_workspace_windows "$i" "$((i - 9))"
+            hyprctl keyword workspace "$i, persistent:false" >/dev/null
+        fi
+        i=$((i + 1))
+    done
+
+}
+
+merge_external_if_disconnected() {
+    [ -n "$(external_monitor)" ] && return
+
+    i=10
+    while [ "$i" -le 18 ]; do
+        move_workspace_windows "$i" "$((i - 9))"
+        hyprctl keyword workspace "$i, persistent:false" >/dev/null
+        i=$((i + 1))
+    done
+}
+
+switch_key() {
+    merge_external_if_disconnected
+    hyprctl dispatch workspace "$(workspace_for_key "$1")"
+}
+
+move_key() {
+    merge_external_if_disconnected
+    hyprctl dispatch movetoworkspace "$(workspace_for_key "$1")"
+}
+
+relative_workspace() {
+    merge_external_if_disconnected
+    current="$(active_workspace_id)"
+    monitor="$(focused_monitor)"
+    direction="$1"
+
+    case "$current" in
+        ''|*[!0-9]*) current=1 ;;
+    esac
+
+    case "$monitor" in
+        "$laptop") min=1; max=9 ;;
+        *) min=10; max=18 ;;
+    esac
+
+    case "$direction" in
+        prev) next=$((current - 1)) ;;
+        next) next=$((current + 1)) ;;
+        *) exit 2 ;;
+    esac
+
+    [ "$next" -lt "$min" ] && next="$max"
+    [ "$next" -gt "$max" ] && next="$min"
+
+    hyprctl dispatch workspace "$next"
+}
+
+external_relative_workspace() {
+    current="$(active_workspace_id)"
+    direction="$1"
+
+    case "$current" in
+        1) current=10 ;;
+        2) current=11 ;;
+        3) current=12 ;;
+        4) current=13 ;;
+        5) current=14 ;;
+        6) current=15 ;;
+        7) current=16 ;;
+        8) current=17 ;;
+        9) current=18 ;;
+        ""|*[!0-9]*) current=10 ;;
+    esac
+
+    [ "$current" -lt 10 ] && current=10
+    [ "$current" -gt 18 ] && current=18
+
+    case "$direction" in
+        prev) next=$((current - 1)) ;;
+        next) next=$((current + 1)) ;;
+        *) exit 2 ;;
+    esac
+
+    [ "$next" -lt 10 ] && next=18
+    [ "$next" -gt 18 ] && next=10
+
+    hyprctl dispatch workspace "$next"
+}
+
+watch() {
+    reconcile
+
+    if command -v socat >/dev/null 2>&1 && [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ]; then
+        socket="$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock"
+        socat - UNIX-CONNECT:"$socket" | while read -r event; do
+            case "$event" in
+                monitoradded*|monitorremoved*)
+                    reconcile
+                    sleep 0.25
+                    reconcile
+                    sleep 1
+                    reconcile
+                    ;;
+            esac
+        done
+    else
+        while sleep 2; do
+            reconcile
+        done
+    fi
+}
+
+case "$1" in
+    reconcile) reconcile ;;
+    watch) watch ;;
+    switch) switch_key "$2" ;;
+    move) move_key "$2" ;;
+    prev) relative_workspace prev ;;
+    next) relative_workspace next ;;
+    external-prev) external_relative_workspace prev ;;
+    external-next) external_relative_workspace next ;;
+    *) echo "usage: $0 reconcile|watch|switch N|move N|prev|next|external-prev|external-next" >&2; exit 2 ;;
+esac

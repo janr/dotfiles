@@ -1,0 +1,129 @@
+* {
+  border: none;
+  border-radius: 0;
+  font-family: "JetBrainsMono Nerd Font", "Noto Sans", sans-serif;
+  font-size: 13px;
+  min-height: 0;
+}
+
+window#waybar {
+  background: transparent;
+  color: #cdd6f4;
+}
+
+tooltip {
+  background: #1e1e2e;
+  color: #cdd6f4;
+  border-radius: 10px;
+  border: 1px solid #313244;
+}
+
+#workspaces,
+#window,
+#tray,
+#pulseaudio,
+#network,
+#battery,
+#clock {
+  background: rgba(30, 30, 46, 0.86);
+  border: 1px solid rgba(180, 190, 254, 0.18);
+  border-radius: 14px;
+  padding: 0 10px;
+  margin: 0 3px;
+}
+
+#workspaces {
+  padding: 0 5px;
+}
+
+#workspaces button {
+  color: #6c7086;
+  background: transparent;
+  border-radius: 10px;
+  padding: 0 9px;
+  margin: 4px 2px;
+}
+
+
+/* Only show workspaces assigned to this bar's monitor. This prevents stale
+   hotplug assignments from rendering both the laptop and external sets. */
+#workspaces button:not(.hosting-monitor) {
+  color: transparent;
+  background: transparent;
+  border: 0;
+  font-size: 0;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  opacity: 0;
+}
+
+/* Occupied persistent workspace */
+#workspaces button.persistent {
+  color: #cdd6f4;
+}
+
+/* Empty persistent workspace.
+   This must come AFTER .persistent so empty workspaces stay dim. */
+#workspaces button.empty {
+  color: #45475a;
+}
+
+/* Active workspace */
+#workspaces button.active {
+  color: #11111b;
+  background: #89b4fa;
+}
+
+/* Visible on another monitor */
+#workspaces button.visible {
+  color: #cdd6f4;
+  background: rgba(137, 180, 250, 0.22);
+}
+
+/* Urgent workspace */
+#workspaces button.urgent {
+  color: #11111b;
+  background: #f38ba8;
+}
+
+#workspaces button:hover {
+  color: #cdd6f4;
+  background: rgba(137, 180, 250, 0.28);
+}
+
+#window {
+  color: #bac2de;
+  padding: 0 14px;
+}
+
+window#waybar.empty #window {
+  background: transparent;
+  border-color: transparent;
+}
+
+#tray {
+  padding: 0 9px;
+}
+
+#pulseaudio,
+#network,
+#battery,
+#clock {
+  color: #cdd6f4;
+}
+
+#battery.warning {
+  color: #f9e2af;
+}
+
+#battery.critical {
+  color: #f38ba8;
+}
+
+#battery.charging,
+#battery.plugged {
+  color: #a6e3a1;
+}
+
