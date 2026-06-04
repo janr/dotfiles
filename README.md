@@ -23,7 +23,7 @@ Super-key driven workflow where possible.
 - Uses `SUPER` as the main modifier.
 - Starts Waybar, hyprpaper, the custom workspace watcher, `nm-applet`, and
   Google Chrome on login.
-- Uses `x-terminal-emulator` for the terminal, `wofi --show drun` for the
+- Uses `x-terminal-emulator` for the terminal, `wofi --show run` for the
   launcher, and Google Chrome as the browser.
 - Sets Yaru cursor themes for both Hyprland and XWayland cursor variables.
 - Uses a 2x scale on the laptop panel (`eDP-1`) and places additional monitors

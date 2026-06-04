@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# scrt - Take a screenshot selection and copy it to the clipboard
+
+set -euo pipefail
+
+if [ "${XDG_SESSION_TYPE:-}" = "wayland" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; then
+    for cmd in grim slurp wl-copy; do
+        if ! command -v "$cmd" >/dev/null 2>&1; then
+            echo "Error: '$cmd' is not installed."
+            exit 1
+        fi
+    done
+
+    geometry="$(slurp)"
+    grim -g "$geometry" - | wl-copy --type image/png
+else
+    for cmd in scrot xclip; do
+        if ! command -v "$cmd" >/dev/null 2>&1; then
+            echo "Error: '$cmd' is not installed."
+            exit 1
+        fi
+    done
+
+    scrot -s '/tmp/scrt_temp_%Y%m%d%H%M%S.png' -e 'xclip -selection clipboard -t image/png -i "$f" && rm "$f"'
+fi
+
+echo "Screenshot copied to clipboard!"
