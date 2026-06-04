@@ -24,6 +24,26 @@ active_workspace_id() {
     '
 }
 
+occupied_workspaces() {
+    hyprctl workspaces | awk '
+        /^workspace ID/ { id = $3; windows = 0 }
+        /^[[:space:]]*windows:/ {
+            windows = $2
+            if (id >= 1 && id <= 18 && windows > 0) {
+                print id
+            }
+        }
+    ' | sort -n
+}
+
+all_workspaces() {
+    i=1
+    while [ "$i" -le 18 ]; do
+        echo "$i"
+        i=$((i + 1))
+    done
+}
+
 workspace_for_key() {
     key="$1"
     monitor="$(focused_monitor)"
@@ -99,63 +119,58 @@ move_key() {
     hyprctl dispatch movetoworkspace "$(workspace_for_key "$1")"
 }
 
-relative_workspace() {
-    merge_external_if_disconnected
+select_relative_workspace() {
+    workspaces="$1"
     current="$(active_workspace_id)"
-    monitor="$(focused_monitor)"
-    direction="$1"
+    direction="$2"
+
+    [ -z "$workspaces" ] && exit 0
 
     case "$current" in
-        ''|*[!0-9]*) current=1 ;;
-    esac
-
-    case "$monitor" in
-        "$laptop") min=1; max=9 ;;
-        *) min=10; max=18 ;;
+        ""|*[!0-9]*) current=0 ;;
     esac
 
     case "$direction" in
-        prev) next=$((current - 1)) ;;
-        next) next=$((current + 1)) ;;
+        prev)
+            next="$(printf '%s\n' "$workspaces" | awk -v current="$current" '
+                { if (!last) first = $1; last = $1; if ($1 < current) previous = $1 }
+                END {
+                    if (!previous) {
+                        print last
+                    } else {
+                        print previous
+                    }
+                }
+            ')"
+            ;;
+        next)
+            next="$(printf '%s\n' "$workspaces" | awk -v current="$current" '
+                { if (!first) first = $1; if ($1 > current && !candidate) candidate = $1; last = $1 }
+                END {
+                    if (!candidate) {
+                        print first
+                    } else {
+                        print candidate
+                    }
+                }
+            ')"
+            ;;
         *) exit 2 ;;
     esac
 
-    [ "$next" -lt "$min" ] && next="$max"
-    [ "$next" -gt "$max" ] && next="$min"
+    [ -n "$next" ] && hyprctl dispatch workspace "$next"
+}
 
-    hyprctl dispatch workspace "$next"
+relative_workspace() {
+    select_relative_workspace "$(occupied_workspaces)" "$1"
+}
+
+all_relative_workspace() {
+    select_relative_workspace "$(all_workspaces)" "$1"
 }
 
 external_relative_workspace() {
-    current="$(active_workspace_id)"
-    direction="$1"
-
-    case "$current" in
-        1) current=10 ;;
-        2) current=11 ;;
-        3) current=12 ;;
-        4) current=13 ;;
-        5) current=14 ;;
-        6) current=15 ;;
-        7) current=16 ;;
-        8) current=17 ;;
-        9) current=18 ;;
-        ""|*[!0-9]*) current=10 ;;
-    esac
-
-    [ "$current" -lt 10 ] && current=10
-    [ "$current" -gt 18 ] && current=18
-
-    case "$direction" in
-        prev) next=$((current - 1)) ;;
-        next) next=$((current + 1)) ;;
-        *) exit 2 ;;
-    esac
-
-    [ "$next" -lt 10 ] && next=18
-    [ "$next" -gt 18 ] && next=10
-
-    hyprctl dispatch workspace "$next"
+    all_relative_workspace "$1"
 }
 
 watch() {
