@@ -50,6 +50,8 @@ Super-key driven workflow where possible.
 - Supports `SUPER+Left/Right` for occupied-workspace navigation,
   `SUPER+CTRL+Left/Right` for all-workspace navigation, and
   `SUPER+SHIFT+Left/Right` for moving the focused window between workspaces.
+- Supports `SUPER+Up/Down` for first/last empty workspace navigation on the
+  focused display, and `SUPER+SHIFT+Up/Down` for moving the focused window there.
 - Supports `SUPER+CTRL+R` to reload Hyprland and reconcile workspace state.
 - Uses `hyprpaper` with the bundled `dark_cubes.jpg` wallpaper as the fallback for all displays.
 

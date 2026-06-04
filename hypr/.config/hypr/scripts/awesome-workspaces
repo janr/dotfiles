@@ -182,29 +182,79 @@ external_relative_workspace() {
     all_relative_workspace "$1"
 }
 
-first_empty_workspace() {
+empty_workspace_range() {
     merge_external_if_disconnected
 
     monitor="$(focused_monitor)"
     if [ "$monitor" = "$laptop" ]; then
-        start=1
-        end=9
+        echo "1 9"
     else
-        start=10
-        end=18
+        echo "10 18"
     fi
+}
+
+empty_workspace() {
+    direction="$1"
+
+    set -- $(empty_workspace_range)
+    start="$1"
+    end="$2"
 
     occupied="$(occupied_workspaces)"
 
-    i="$start"
-    while [ "$i" -le "$end" ]; do
-        if ! printf '%s\n' "$occupied" | awk -v id="$i" '$1 == id { found = 1 } END { exit found ? 0 : 1 }'; then
-            hyprctl dispatch workspace "$i"
-            refresh_waybar_workspaces
-            exit 0
-        fi
-        i=$((i + 1))
-    done
+    if [ "$direction" = first ]; then
+        i="$start"
+        while [ "$i" -le "$end" ]; do
+            if ! printf '%s\n' "$occupied" | awk -v id="$i" '$1 == id { found = 1 } END { exit found ? 0 : 1 }'; then
+                echo "$i"
+                return 0
+            fi
+            i=$((i + 1))
+        done
+    elif [ "$direction" = last ]; then
+        i="$end"
+        while [ "$i" -ge "$start" ]; do
+            if ! printf '%s\n' "$occupied" | awk -v id="$i" '$1 == id { found = 1 } END { exit found ? 0 : 1 }'; then
+                echo "$i"
+                return 0
+            fi
+            i=$((i - 1))
+        done
+    else
+        exit 2
+    fi
+
+    return 1
+}
+
+switch_empty_workspace() {
+    workspace="$(empty_workspace "$1")" || exit 0
+
+    hyprctl dispatch workspace "$workspace"
+    refresh_waybar_workspaces
+}
+
+move_to_empty_workspace() {
+    workspace="$(empty_workspace "$1")" || exit 0
+
+    hyprctl dispatch movetoworkspace "$workspace"
+    refresh_waybar_workspaces
+}
+
+first_empty_workspace() {
+    switch_empty_workspace first
+}
+
+last_empty_workspace() {
+    switch_empty_workspace last
+}
+
+move_to_first_empty_workspace() {
+    move_to_empty_workspace first
+}
+
+move_to_last_empty_workspace() {
+    move_to_empty_workspace last
 }
 
 watch() {
@@ -238,7 +288,10 @@ case "$1" in
     prev) relative_workspace prev ;;
     next) relative_workspace next ;;
     first-empty) first_empty_workspace ;;
+    last-empty) last_empty_workspace ;;
+    move-first-empty) move_to_first_empty_workspace ;;
+    move-last-empty) move_to_last_empty_workspace ;;
     external-prev) external_relative_workspace prev ;;
     external-next) external_relative_workspace next ;;
-    *) echo "usage: $0 reconcile|watch|switch N|move N|prev|next|first-empty|external-prev|external-next" >&2; exit 2 ;;
+    *) echo "usage: $0 reconcile|watch|switch N|move N|prev|next|first-empty|last-empty|move-first-empty|move-last-empty|external-prev|external-next" >&2; exit 2 ;;
 esac
