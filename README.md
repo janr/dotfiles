@@ -31,8 +31,8 @@ Super-key driven workflow where possible.
 - Enables focus-follow-mouse behavior.
 - Uses the Hyprland `master` layout with an Awesome-like master factor of
   `0.618`.
-- Keeps a minimal Awesome-like visual style: no gaps, square corners, simple
-  borders, no blur, no shadows, and dimmed inactive windows.
+- Keeps a compact Awesome-like visual style: no gaps, simple borders, modest
+  rounding, blur, glow accents, no shadows, and dimmed inactive windows.
 - Adds floating and centered rules for common dialogs, file pickers, portal
   windows, and utilities such as `pinentry`, `blueman-manager`, `Gpick`, and
   Tor Browser.
@@ -40,12 +40,14 @@ Super-key driven workflow where possible.
   `~/.config/hypr/scripts/awesome-workspaces`.
 - Maps laptop workspaces to `1-9` and external-monitor workspaces to `10-18`,
   while presenting both sets as `1-9` in Waybar.
-- Supports direct external workspace access with `SUPER+ALT+1` through
-  `SUPER+ALT+9`.
+- Supports direct external workspace access with `SUPER+CTRL+1` through
+  `SUPER+CTRL+9`, and moving windows there with `SUPER+CTRL+SHIFT+1` through
+  `SUPER+CTRL+SHIFT+9`.
 - Includes bindings for window cycling, swapping, moving between workspaces,
   fullscreen modes, pinning, moving windows across monitors, and swapping with
   the master window.
-- Supports `SUPER+Left/Right` for workspace navigation and
+- Supports `SUPER+Left/Right` for occupied-workspace navigation,
+  `SUPER+CTRL+Left/Right` for all-workspace navigation, and
   `SUPER+SHIFT+Left/Right` for moving the focused window between workspaces.
 - Supports `SUPER+CTRL+R` to reload Hyprland and reconcile workspace state.
 - Uses `hyprpaper` with the bundled `dark_cubes.jpg` wallpaper as the fallback for all displays.
@@ -110,4 +112,3 @@ Remove links manually:
 ```sh
 stow -D -t ~ hypr waybar
 ```
-
