@@ -5,14 +5,48 @@
 set -euo pipefail
 
 if [ "${XDG_SESSION_TYPE:-}" = "wayland" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; then
-    for cmd in grim slurp wl-copy; do
+    for cmd in grim hyprctl jq slurp wl-copy; do
         if ! command -v "$cmd" >/dev/null 2>&1; then
             echo "Error: '$cmd' is not installed."
             exit 1
         fi
     done
 
-    geometry="$(slurp)"
+    selection_file="$(mktemp -t scrt-selection.XXXXXX)"
+    trap 'rm -f "$selection_file"' EXIT
+
+    while true; do
+        workspace_id="$(hyprctl activeworkspace -j | jq -r '.id')"
+        windows="$(hyprctl clients -j | jq -r --argjson workspace_id "$workspace_id" '
+            .[]
+            | select(.mapped and .workspace.id == $workspace_id)
+            | "\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1]) \(.title)"
+        ')"
+
+        refresh_selection=false
+        slurp > "$selection_file" <<< "$windows" &
+        slurp_pid="$!"
+
+        while kill -0 "$slurp_pid" >/dev/null 2>&1; do
+            current_workspace_id="$(hyprctl activeworkspace -j | jq -r '.id')"
+            if [ "$workspace_id" != "$current_workspace_id" ]; then
+                refresh_selection=true
+                kill "$slurp_pid" >/dev/null 2>&1 || true
+                wait "$slurp_pid" >/dev/null 2>&1 || true
+                break
+            fi
+            sleep 0.1
+        done
+
+        if [ "$refresh_selection" = true ]; then
+            continue
+        fi
+
+        wait "$slurp_pid" || exit 1
+        geometry="$(cat "$selection_file")"
+        [ -n "$geometry" ] && break
+    done
+
     grim -g "$geometry" - | wl-copy --type image/png
 else
     for cmd in scrot xclip; do

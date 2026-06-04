@@ -9,6 +9,7 @@ that should exist under your home directory.
 
 Current packages:
 
+- `bin`
 - `hypr`
 - `waybar`
 
@@ -104,11 +105,11 @@ This repository is in `~/src/dotfiles`, so the Stow target must be your home
 directory:
 
 ```sh
-stow -t ~ hypr waybar
+stow -t ~ bin hypr waybar
 ```
 
 Remove links manually:
 
 ```sh
-stow -D -t ~ hypr waybar
+stow -D -t ~ bin hypr waybar
 ```

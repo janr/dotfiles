@@ -1,4 +1,4 @@
-PACKAGES := hypr waybar
+PACKAGES := bin hypr waybar
 TARGET := $(HOME)
 STOW := stow
 
