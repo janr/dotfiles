@@ -19,6 +19,7 @@ tooltip {
 }
 
 #workspaces,
+#workspaces-external,
 #window,
 #tray,
 #pulseaudio,
@@ -32,18 +33,51 @@ tooltip {
   margin: 0 3px;
 }
 
-#workspaces {
+#workspaces,
+#workspaces-external {
   padding: 0 5px;
 }
 
-#workspaces button {
+#workspaces-external {
+  background: rgba(30, 41, 59, 0.88);
+  border-color: rgba(148, 226, 213, 0.24);
+}
+
+#workspaces button,
+#custom-ws-10,
+#custom-ws-11,
+#custom-ws-12,
+#custom-ws-13,
+#custom-ws-14,
+#custom-ws-15,
+#custom-ws-16,
+#custom-ws-17,
+#custom-ws-18 {
   color: #6c7086;
   background: transparent;
+  border: 0;
   border-radius: 10px;
+  min-width: 12px;
+  min-height: 20px;
   padding: 0 9px;
   margin: 4px 2px;
 }
 
+#custom-ws-10.hidden,
+#custom-ws-11.hidden,
+#custom-ws-12.hidden,
+#custom-ws-13.hidden,
+#custom-ws-14.hidden,
+#custom-ws-15.hidden,
+#custom-ws-16.hidden,
+#custom-ws-17.hidden,
+#custom-ws-18.hidden {
+  font-size: 0;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  opacity: 0;
+}
 
 /* Only show workspaces assigned to this bar's monitor. This prevents stale
    hotplug assignments from rendering both the laptop and external sets. */
@@ -60,7 +94,16 @@ tooltip {
 }
 
 /* Occupied persistent workspace */
-#workspaces button.persistent {
+#workspaces button.persistent,
+#custom-ws-10.occupied,
+#custom-ws-11.occupied,
+#custom-ws-12.occupied,
+#custom-ws-13.occupied,
+#custom-ws-14.occupied,
+#custom-ws-15.occupied,
+#custom-ws-16.occupied,
+#custom-ws-17.occupied,
+#custom-ws-18.occupied {
   color: #cdd6f4;
 }
 
@@ -76,10 +119,36 @@ tooltip {
   background: #89b4fa;
 }
 
+#custom-ws-10.active,
+#custom-ws-11.active,
+#custom-ws-12.active,
+#custom-ws-13.active,
+#custom-ws-14.active,
+#custom-ws-15.active,
+#custom-ws-16.active,
+#custom-ws-17.active,
+#custom-ws-18.active {
+  color: #11111b;
+  background: #94e2d5;
+}
+
 /* Visible on another monitor */
 #workspaces button.visible {
   color: #cdd6f4;
   background: rgba(137, 180, 250, 0.22);
+}
+
+#custom-ws-10.visible,
+#custom-ws-11.visible,
+#custom-ws-12.visible,
+#custom-ws-13.visible,
+#custom-ws-14.visible,
+#custom-ws-15.visible,
+#custom-ws-16.visible,
+#custom-ws-17.visible,
+#custom-ws-18.visible {
+  color: #cdd6f4;
+  background: rgba(148, 226, 213, 0.22);
 }
 
 /* Urgent workspace */
@@ -91,6 +160,19 @@ tooltip {
 #workspaces button:hover {
   color: #cdd6f4;
   background: rgba(137, 180, 250, 0.28);
+}
+
+#custom-ws-10:hover,
+#custom-ws-11:hover,
+#custom-ws-12:hover,
+#custom-ws-13:hover,
+#custom-ws-14:hover,
+#custom-ws-15:hover,
+#custom-ws-16:hover,
+#custom-ws-17:hover,
+#custom-ws-18:hover {
+  color: #cdd6f4;
+  background: rgba(148, 226, 213, 0.28);
 }
 
 #window {
@@ -126,4 +208,3 @@ window#waybar.empty #window {
 #battery.plugged {
   color: #a6e3a1;
 }
-

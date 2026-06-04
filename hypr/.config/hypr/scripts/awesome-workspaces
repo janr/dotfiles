@@ -2,6 +2,10 @@
 
 laptop=eDP-1
 
+refresh_waybar_workspaces() {
+    pkill -RTMIN+8 waybar >/dev/null 2>&1 || true
+}
+
 focused_monitor() {
     hyprctl monitors | awk '
         /^Monitor / { monitor = $2 }
@@ -112,11 +116,13 @@ merge_external_if_disconnected() {
 switch_key() {
     merge_external_if_disconnected
     hyprctl dispatch workspace "$(workspace_for_key "$1")"
+    refresh_waybar_workspaces
 }
 
 move_key() {
     merge_external_if_disconnected
     hyprctl dispatch movetoworkspace "$(workspace_for_key "$1")"
+    refresh_waybar_workspaces
 }
 
 select_relative_workspace() {
@@ -158,7 +164,10 @@ select_relative_workspace() {
         *) exit 2 ;;
     esac
 
-    [ -n "$next" ] && hyprctl dispatch workspace "$next"
+    if [ -n "$next" ]; then
+        hyprctl dispatch workspace "$next"
+        refresh_waybar_workspaces
+    fi
 }
 
 relative_workspace() {

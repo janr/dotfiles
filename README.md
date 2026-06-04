@@ -60,11 +60,11 @@ The Waybar config is a compact top bar designed for the Hyprland workspace setup
 - Shows Hyprland workspaces on the left, the focused window title in the center,
   and tray, volume, battery, and clock modules on the right.
 - Uses the custom Awesome-style workspace script for scroll navigation.
-- Shows only the workspaces assigned to the current monitor, which prevents
-  stale hotplug assignments from displaying both laptop and external workspace
-  sets on one bar.
-- Displays workspaces `10-18` as `1-9` so external-monitor workspaces look like
-  a normal local tag set.
+- Splits laptop workspaces and external-monitor workspaces into separate pills
+  when both sets are assigned to the same bar, using custom buttons for the
+  external workspace set.
+- Displays external workspaces `10-18` as `1-9` with a subtly different pill
+  color.
 - Limits window titles to 70 characters and keeps titles separate per output.
 - Provides a system tray with 16px icons.
 - Shows PulseAudio volume, supports 5% scroll steps, and opens `pavucontrol` on
