@@ -182,6 +182,31 @@ external_relative_workspace() {
     all_relative_workspace "$1"
 }
 
+first_empty_workspace() {
+    merge_external_if_disconnected
+
+    monitor="$(focused_monitor)"
+    if [ "$monitor" = "$laptop" ]; then
+        start=1
+        end=9
+    else
+        start=10
+        end=18
+    fi
+
+    occupied="$(occupied_workspaces)"
+
+    i="$start"
+    while [ "$i" -le "$end" ]; do
+        if ! printf '%s\n' "$occupied" | awk -v id="$i" '$1 == id { found = 1 } END { exit found ? 0 : 1 }'; then
+            hyprctl dispatch workspace "$i"
+            refresh_waybar_workspaces
+            exit 0
+        fi
+        i=$((i + 1))
+    done
+}
+
 watch() {
     reconcile
 
@@ -212,7 +237,8 @@ case "$1" in
     move) move_key "$2" ;;
     prev) relative_workspace prev ;;
     next) relative_workspace next ;;
+    first-empty) first_empty_workspace ;;
     external-prev) external_relative_workspace prev ;;
     external-next) external_relative_workspace next ;;
-    *) echo "usage: $0 reconcile|watch|switch N|move N|prev|next|external-prev|external-next" >&2; exit 2 ;;
+    *) echo "usage: $0 reconcile|watch|switch N|move N|prev|next|first-empty|external-prev|external-next" >&2; exit 2 ;;
 esac
