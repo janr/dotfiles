@@ -35,11 +35,6 @@ if printf '%s\n' "$active" | awk -v id="$id" '$1 == id { found = 1 } END { exit 
   is_visible=true
 fi
 
-if [ "$windows" -eq 0 ] 2>/dev/null && [ "$is_visible" = false ]; then
-  printf '{"text":"","class":["external","hidden"]}\n'
-  exit 0
-fi
-
 if [ "$id" -eq "$focused" ] 2>/dev/null; then
   classes="$classes,\"active\""
 elif [ "$is_visible" = true ]; then

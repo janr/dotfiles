@@ -117,6 +117,20 @@ tooltip {
   box-shadow: none;
 }
 
+#custom-ws-10.empty,
+#custom-ws-11.empty,
+#custom-ws-12.empty,
+#custom-ws-13.empty,
+#custom-ws-14.empty,
+#custom-ws-15.empty,
+#custom-ws-16.empty,
+#custom-ws-17.empty,
+#custom-ws-18.empty {
+  color: #3f575d;
+  background: transparent;
+  box-shadow: none;
+}
+
 /* Active workspace */
 #workspaces button.active {
   color: #11111b;
