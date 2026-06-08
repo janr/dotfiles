@@ -1,0 +1,113 @@
+#!/bin/sh
+
+set -u
+
+config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+hypr_dir="$config_home/hypr"
+waybar_dir="$config_home/waybar"
+workspace_script="$hypr_dir/scripts/awesome-workspaces"
+
+log() {
+    printf '%s\n' "$*"
+}
+
+have() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+stop_pids() {
+    signal="$1"
+    shift
+
+    for pid do
+        [ -n "$pid" ] || continue
+        [ "$pid" = "$$" ] && continue
+        kill "-$signal" "$pid" >/dev/null 2>&1 || true
+    done
+}
+
+wait_for_exit() {
+    for pid do
+        [ -n "$pid" ] || continue
+        [ "$pid" = "$$" ] && continue
+
+        tries=0
+        while kill -0 "$pid" >/dev/null 2>&1 && [ "$tries" -lt 20 ]; do
+            sleep 0.05
+            tries=$((tries + 1))
+        done
+    done
+}
+
+restart_process_name() {
+    name="$1"
+    shift
+
+    if ! have "$1"; then
+        log "skip: $1 not found"
+        return 0
+    fi
+
+    pids="$(pgrep -u "$USER" -x "$name" 2>/dev/null || true)"
+    if [ -n "$pids" ]; then
+        stop_pids TERM $pids
+        wait_for_exit $pids
+    fi
+
+    if "$@" >/dev/null 2>&1 & then
+        log "restarted: $name"
+    else
+        log "failed: $name"
+    fi
+}
+
+restart_workspace_watcher() {
+    if [ ! -x "$workspace_script" ]; then
+        log "skip: workspace watcher not executable"
+        return 0
+    fi
+
+    "$workspace_script" restart-watch
+    log "restarted: awesome-workspaces watch"
+}
+
+ensure_nm_applet() {
+    if ! have nm-applet; then
+        return 0
+    fi
+
+    if ! pgrep -u "$USER" -x nm-applet >/dev/null 2>&1; then
+        nm-applet >/dev/null 2>&1 &
+        log "started: nm-applet"
+    fi
+}
+
+reload_hyprland() {
+    if have hyprctl; then
+        if hyprctl reload; then
+            log "reloaded: hyprland"
+        else
+            log "failed: hyprland reload"
+        fi
+    else
+        log "skip: hyprctl not found"
+    fi
+}
+
+restart_waybar() {
+    if [ -f "$waybar_dir/config.jsonc" ]; then
+        restart_process_name waybar waybar -c "$waybar_dir/config.jsonc" -s "$waybar_dir/style.css"
+    else
+        restart_process_name waybar waybar
+    fi
+}
+
+restart_hyprpaper() {
+    restart_process_name hyprpaper hyprpaper
+}
+
+reload_hyprland
+restart_workspace_watcher
+restart_hyprpaper
+restart_waybar
+ensure_nm_applet

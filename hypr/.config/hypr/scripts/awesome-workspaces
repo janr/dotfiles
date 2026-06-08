@@ -253,11 +253,6 @@ relative_workspace_range() {
 empty_workspace_range() {
     merge_external_if_disconnected
 
-    if [ "$(monitor_count)" -le 1 ]; then
-        echo "1 18"
-        return
-    fi
-
     monitor="$(focused_monitor)"
     if [ "$monitor" = "$(primary_monitor)" ]; then
         echo "1 9"
