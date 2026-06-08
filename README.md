@@ -47,8 +47,10 @@ Super-key driven workflow where possible.
 - Includes bindings for window cycling, swapping, moving between workspaces,
   fullscreen modes, pinning, moving windows across monitors, and swapping with
   the master window.
-- Supports `SUPER+Left/Right` for occupied-workspace navigation,
-  `SUPER+CTRL+Left/Right` for all-workspace navigation, and
+- Supports `SUPER+Left/Right` for occupied-workspace navigation across `1-18`
+  with one connected display, or within the focused display's workspace set with
+  multiple connected displays.
+- Supports `SUPER+CTRL+Left/Right` for all-workspace navigation, and
   `SUPER+SHIFT+Left/Right` for moving the focused window between workspaces.
 - Supports `SUPER+Up/Down` for first/last empty workspace navigation on the
   focused display, and `SUPER+SHIFT+Up/Down` for moving the focused window there.

@@ -10,13 +10,38 @@ focused_monitor() {
     hyprctl monitors | awk '
         /^Monitor / { monitor = $2 }
         /focused: yes/ { print monitor; found = 1; exit }
-        END { if (!found) print "eDP-1" }
+        END { if (!found) print "" }
+    '
+}
+
+primary_monitor() {
+    hyprctl monitors | awk -v laptop="$laptop" '
+        /^Monitor / {
+            if (!first) first = $2
+            if ($2 == laptop) laptop_found = $2
+            monitor = $2
+        }
+        /focused: yes/ { focused = monitor }
+        END {
+            if (laptop_found) print laptop_found
+            else if (focused) print focused
+            else print first
+        }
     '
 }
 
 external_monitor() {
-    hyprctl monitors | awk -v laptop="$laptop" '
-        /^Monitor / && $2 != laptop { print $2; exit }
+    primary="$(primary_monitor)"
+
+    hyprctl monitors | awk -v primary="$primary" '
+        /^Monitor / && $2 != primary { print $2; exit }
+    '
+}
+
+monitor_count() {
+    hyprctl monitors | awk '
+        /^Monitor / { count++ }
+        END { print count + 0 }
     '
 }
 
@@ -48,11 +73,32 @@ all_workspaces() {
     done
 }
 
+workspace_range() {
+    start="$1"
+    end="$2"
+
+    i="$start"
+    while [ "$i" -le "$end" ]; do
+        echo "$i"
+        i=$((i + 1))
+    done
+}
+
+occupied_workspace_range() {
+    start="$1"
+    end="$2"
+
+    occupied_workspaces | awk -v start="$start" -v end="$end" '
+        $1 >= start && $1 <= end { print $1 }
+    '
+}
+
 workspace_for_key() {
     key="$1"
     monitor="$(focused_monitor)"
+    primary="$(primary_monitor)"
 
-    if [ "$monitor" = "$laptop" ]; then
+    if [ "$(monitor_count)" -le 1 ] || [ "$monitor" = "$primary" ]; then
         echo "$key"
     else
         echo $((key + 9))
@@ -72,14 +118,17 @@ move_workspace_windows() {
 }
 
 reconcile() {
+    primary="$(primary_monitor)"
     external="$(external_monitor)"
+
+    [ -z "$primary" ] && primary="$laptop"
 
     i=1
     while [ "$i" -le 9 ]; do
         if [ "$i" -eq 1 ]; then
-            hyprctl keyword workspace "$i, monitor:$laptop, persistent:true, default:true" >/dev/null
+            hyprctl keyword workspace "$i, monitor:$primary, persistent:true, default:true" >/dev/null
         else
-            hyprctl keyword workspace "$i, monitor:$laptop, persistent:true" >/dev/null
+            hyprctl keyword workspace "$i, monitor:$primary, persistent:true" >/dev/null
         fi
         i=$((i + 1))
     done
@@ -94,8 +143,8 @@ reconcile() {
             fi
             hyprctl dispatch moveworkspacetomonitor "$i $external" >/dev/null 2>&1 || true
         else
-            move_workspace_windows "$i" "$((i - 9))"
-            hyprctl keyword workspace "$i, persistent:false" >/dev/null
+            hyprctl keyword workspace "$i, monitor:$primary, persistent:true" >/dev/null
+            hyprctl dispatch moveworkspacetomonitor "$i $primary" >/dev/null 2>&1 || true
         fi
         i=$((i + 1))
     done
@@ -103,14 +152,7 @@ reconcile() {
 }
 
 merge_external_if_disconnected() {
-    [ -n "$(external_monitor)" ] && return
-
-    i=10
-    while [ "$i" -le 18 ]; do
-        move_workspace_windows "$i" "$((i - 9))"
-        hyprctl keyword workspace "$i, persistent:false" >/dev/null
-        i=$((i + 1))
-    done
+    reconcile
 }
 
 switch_key() {
@@ -171,7 +213,10 @@ select_relative_workspace() {
 }
 
 relative_workspace() {
-    select_relative_workspace "$(occupied_workspaces)" "$1"
+    direction="$1"
+
+    set -- $(relative_workspace_range)
+    select_relative_workspace "$(occupied_workspace_range "$1" "$2")" "$direction"
 }
 
 all_relative_workspace() {
@@ -182,11 +227,30 @@ external_relative_workspace() {
     all_relative_workspace "$1"
 }
 
+relative_workspace_range() {
+    if [ "$(monitor_count)" -le 1 ]; then
+        echo "1 18"
+        return
+    fi
+
+    monitor="$(focused_monitor)"
+    if [ "$monitor" = "$(primary_monitor)" ]; then
+        echo "1 9"
+    else
+        echo "10 18"
+    fi
+}
+
 empty_workspace_range() {
     merge_external_if_disconnected
 
+    if [ "$(monitor_count)" -le 1 ]; then
+        echo "1 18"
+        return
+    fi
+
     monitor="$(focused_monitor)"
-    if [ "$monitor" = "$laptop" ]; then
+    if [ "$monitor" = "$(primary_monitor)" ]; then
         echo "1 9"
     else
         echo "10 18"
