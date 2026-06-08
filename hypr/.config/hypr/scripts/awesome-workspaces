@@ -162,6 +162,20 @@ merge_external_if_disconnected() {
     reconcile
 }
 
+activate_external_default_workspace() {
+    external="$(external_monitor)"
+    [ -n "$external" ] || return 0
+
+    focused="$(focused_monitor)"
+
+    hyprctl dispatch focusmonitor "$external" >/dev/null 2>&1 || return 0
+    hyprctl dispatch workspace 10 >/dev/null 2>&1 || true
+
+    if [ -n "$focused" ] && [ "$focused" != "$external" ]; then
+        hyprctl dispatch focusmonitor "$focused" >/dev/null 2>&1 || true
+    fi
+}
+
 switch_key() {
     merge_external_if_disconnected
     hyprctl dispatch workspace "$(workspace_for_key "$1")"
@@ -339,6 +353,7 @@ watch() {
                     reconcile
                     sleep 1
                     reconcile
+                    activate_external_default_workspace
                     refresh_waybar_workspaces
                     ;;
             esac
@@ -353,6 +368,7 @@ watch() {
             if [ "$current_monitors" != "$previous_monitors" ]; then
                 sleep 0.25
                 reconcile
+                activate_external_default_workspace
                 refresh_waybar_workspaces
                 previous_monitors="$(monitor_signature)"
             fi
