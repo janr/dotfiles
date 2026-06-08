@@ -31,7 +31,8 @@ Super-key driven workflow where possible.
   above it with matching scale.
 - Enables focus-follow-mouse behavior.
 - Uses the Hyprland `master` layout with an Awesome-like master factor of
-  `0.618`.
+  `0.618`, and supports toggling between left-master and top-master
+  orientations with `SUPER+SHIFT+Space`.
 - Keeps a compact Awesome-like visual style: no gaps, simple borders, modest
   rounding, blur, glow accents, no shadows, and dimmed inactive windows.
 - Adds floating and centered rules for common dialogs, file pickers, portal
