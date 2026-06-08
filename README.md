@@ -67,6 +67,8 @@ The Waybar config is a compact top bar designed for the Hyprland workspace setup
 - Uses the custom Awesome-style workspace script for scroll navigation.
 - Uses separate output-scoped bars: `eDP-1` shows workspaces `1-9`, while
   non-`eDP-1` outputs show external workspaces `10-18`.
+- When the external display is disconnected, occupied `10-18` workspaces are
+  shown on the `eDP-1` bar until they are empty.
 - Displays external workspaces `10-18` as `1-9` with a subtly different pill
   color.
 - Limits window titles to 70 characters and keeps titles separate per output.

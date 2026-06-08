@@ -45,6 +45,13 @@ monitor_count() {
     '
 }
 
+monitor_signature() {
+    hyprctl monitors | awk '
+        /^Monitor / { signature = signature $2 "\n" }
+        END { printf "%s", signature }
+    '
+}
+
 active_workspace_id() {
     hyprctl monitors | awk '
         /^Monitor / { active = "" }
@@ -215,6 +222,8 @@ select_relative_workspace() {
 relative_workspace() {
     direction="$1"
 
+    merge_external_if_disconnected
+
     set -- $(relative_workspace_range)
     select_relative_workspace "$(occupied_workspace_range "$1" "$2")" "$direction"
 }
@@ -323,6 +332,7 @@ move_to_last_empty_workspace() {
 
 watch() {
     reconcile
+    refresh_waybar_workspaces
 
     if command -v socat >/dev/null 2>&1 && [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ]; then
         socket="$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock"
@@ -334,19 +344,40 @@ watch() {
                     reconcile
                     sleep 1
                     reconcile
+                    refresh_waybar_workspaces
                     ;;
             esac
         done
     else
-        while sleep 2; do
+        previous_monitors="$(monitor_signature)"
+
+        while sleep 1; do
+            current_monitors="$(monitor_signature)"
             reconcile
+
+            if [ "$current_monitors" != "$previous_monitors" ]; then
+                sleep 0.25
+                reconcile
+                refresh_waybar_workspaces
+                previous_monitors="$(monitor_signature)"
+            fi
         done
     fi
+}
+
+restart_watch() {
+    pgrep -f "$HOME/.config/hypr/scripts/awesome-workspaces watch" 2>/dev/null | while read -r pid; do
+        [ "$pid" = "$$" ] && continue
+        kill "$pid" >/dev/null 2>&1 || true
+    done
+
+    "$HOME/.config/hypr/scripts/awesome-workspaces" watch &
 }
 
 case "$1" in
     reconcile) reconcile ;;
     watch) watch ;;
+    restart-watch) restart_watch ;;
     switch) switch_key "$2" ;;
     move) move_key "$2" ;;
     prev) relative_workspace prev ;;
@@ -357,5 +388,5 @@ case "$1" in
     move-last-empty) move_to_last_empty_workspace ;;
     external-prev) external_relative_workspace prev ;;
     external-next) external_relative_workspace next ;;
-    *) echo "usage: $0 reconcile|watch|switch N|move N|prev|next|first-empty|last-empty|move-first-empty|move-last-empty|external-prev|external-next" >&2; exit 2 ;;
+    *) echo "usage: $0 reconcile|watch|restart-watch|switch N|move N|prev|next|first-empty|last-empty|move-first-empty|move-last-empty|external-prev|external-next" >&2; exit 2 ;;
 esac

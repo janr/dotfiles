@@ -10,7 +10,16 @@
     "spacing": 0,
 
     "modules-left": [
-      "hyprland/workspaces#primary"
+      "hyprland/workspaces#primary",
+      "custom/ws-10",
+      "custom/ws-11",
+      "custom/ws-12",
+      "custom/ws-13",
+      "custom/ws-14",
+      "custom/ws-15",
+      "custom/ws-16",
+      "custom/ws-17",
+      "custom/ws-18"
     ],
 
     "modules-center": [
@@ -53,6 +62,16 @@
         "9": "9"
       }
     },
+
+    "custom/ws-10": { "exec": "~/.config/waybar/scripts/external-workspace 10 fallback", "return-type": "json", "interval": "once", "signal": 8, "hide-empty-text": true, "on-click": "sh -c 'hyprctl dispatch workspace 10; pkill -RTMIN+8 waybar'" },
+    "custom/ws-11": { "exec": "~/.config/waybar/scripts/external-workspace 11 fallback", "return-type": "json", "interval": "once", "signal": 8, "hide-empty-text": true, "on-click": "sh -c 'hyprctl dispatch workspace 11; pkill -RTMIN+8 waybar'" },
+    "custom/ws-12": { "exec": "~/.config/waybar/scripts/external-workspace 12 fallback", "return-type": "json", "interval": "once", "signal": 8, "hide-empty-text": true, "on-click": "sh -c 'hyprctl dispatch workspace 12; pkill -RTMIN+8 waybar'" },
+    "custom/ws-13": { "exec": "~/.config/waybar/scripts/external-workspace 13 fallback", "return-type": "json", "interval": "once", "signal": 8, "hide-empty-text": true, "on-click": "sh -c 'hyprctl dispatch workspace 13; pkill -RTMIN+8 waybar'" },
+    "custom/ws-14": { "exec": "~/.config/waybar/scripts/external-workspace 14 fallback", "return-type": "json", "interval": "once", "signal": 8, "hide-empty-text": true, "on-click": "sh -c 'hyprctl dispatch workspace 14; pkill -RTMIN+8 waybar'" },
+    "custom/ws-15": { "exec": "~/.config/waybar/scripts/external-workspace 15 fallback", "return-type": "json", "interval": "once", "signal": 8, "hide-empty-text": true, "on-click": "sh -c 'hyprctl dispatch workspace 15; pkill -RTMIN+8 waybar'" },
+    "custom/ws-16": { "exec": "~/.config/waybar/scripts/external-workspace 16 fallback", "return-type": "json", "interval": "once", "signal": 8, "hide-empty-text": true, "on-click": "sh -c 'hyprctl dispatch workspace 16; pkill -RTMIN+8 waybar'" },
+    "custom/ws-17": { "exec": "~/.config/waybar/scripts/external-workspace 17 fallback", "return-type": "json", "interval": "once", "signal": 8, "hide-empty-text": true, "on-click": "sh -c 'hyprctl dispatch workspace 17; pkill -RTMIN+8 waybar'" },
+    "custom/ws-18": { "exec": "~/.config/waybar/scripts/external-workspace 18 fallback", "return-type": "json", "interval": "once", "signal": 8, "hide-empty-text": true, "on-click": "sh -c 'hyprctl dispatch workspace 18; pkill -RTMIN+8 waybar'" },
 
     "hyprland/window": {
       "format": "{}",
