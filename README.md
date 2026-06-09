@@ -11,6 +11,8 @@ Current packages:
 
 - `bin`
 - `hypr`
+- `kitty`
+- `nvim`
 - `waybar`
 
 For example, `hypr/.config/hypr/hyprland.conf` is linked to
@@ -116,11 +118,11 @@ This repository is in `~/src/dotfiles`, so the Stow target must be your home
 directory:
 
 ```sh
-stow -t ~ bin hypr waybar
+stow -t ~ bin hypr kitty nvim waybar
 ```
 
 Remove links manually:
 
 ```sh
-stow -D -t ~ bin hypr waybar
+stow -D -t ~ bin hypr kitty nvim waybar
 ```
