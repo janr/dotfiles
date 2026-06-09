@@ -1,0 +1,79 @@
+#!/bin/bash
+
+set -euo pipefail
+
+scale=(0 1 2 3 4 6 8 11 15 20 27 36 48 64 82 100)
+
+usage() {
+    printf 'Usage: %s up|down|status\n' "${0##*/}" >&2
+}
+
+if [ "$#" -ne 1 ]; then
+    usage
+    exit 2
+fi
+
+case "$1" in
+    up|down|status) action="$1" ;;
+    *) usage; exit 2 ;;
+esac
+
+if ! command -v brightnessctl >/dev/null 2>&1; then
+    echo "Error: brightnessctl is not installed." >&2
+    exit 1
+fi
+
+current="$(brightnessctl get)"
+maximum="$(brightnessctl max)"
+
+if [ "$maximum" -le 0 ]; then
+    echo "Error: brightnessctl reported an invalid maximum: $maximum" >&2
+    exit 1
+fi
+
+if [ "$action" = "status" ]; then
+    awk -v current="$current" -v maximum="$maximum" 'BEGIN {
+        printf "%.0f%%\n", (current / maximum) * 100
+    }'
+    exit 0
+fi
+
+target="$(
+    awk \
+        -v action="$action" \
+        -v current="$current" \
+        -v maximum="$maximum" \
+        -v scale="${scale[*]}" '
+        BEGIN {
+            count = split(scale, percent, " ")
+
+            for (i = 1; i <= count; i++) {
+                value = int((percent[i] / 100) * maximum + 0.5)
+                if (percent[i] > 0 && value < 1) {
+                    value = 1
+                }
+                level[i] = value
+            }
+
+            if (action == "up") {
+                for (i = 1; i <= count; i++) {
+                    if (level[i] > current) {
+                        print level[i]
+                        exit
+                    }
+                }
+                print maximum
+                exit
+            }
+
+            for (i = count; i >= 1; i--) {
+                if (level[i] < current) {
+                    print level[i]
+                    exit
+                }
+            }
+            print 0
+        }'
+)"
+
+brightnessctl set "$target"
