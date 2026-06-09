@@ -247,7 +247,12 @@ all_relative_workspace() {
 }
 
 external_relative_workspace() {
-    all_relative_workspace "$1"
+    direction="$1"
+
+    merge_external_if_disconnected
+
+    set -- $(relative_workspace_range)
+    select_relative_workspace "$(workspace_range "$1" "$2")" "$direction"
 }
 
 relative_workspace_range() {

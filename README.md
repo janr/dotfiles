@@ -51,8 +51,9 @@ Super-key driven workflow where possible.
 - Supports `SUPER+Left/Right` for occupied-workspace navigation across `1-18`
   with one connected display, or within the focused display's workspace set with
   multiple connected displays.
-- Supports `SUPER+CTRL+Left/Right` for all-workspace navigation, and
-  `SUPER+SHIFT+Left/Right` for moving the focused window between workspaces.
+- Supports `SUPER+CTRL+Left/Right` for all-workspace navigation on the focused
+  display, and `SUPER+SHIFT+Left/Right` for moving the focused window between
+  workspaces.
 - Supports `SUPER+Up/Down` for first/last empty workspace navigation on the
   focused display, and `SUPER+SHIFT+Up/Down` for moving the focused window there.
 - Supports `SUPER+CTRL+R` to reload Hyprland, restart Waybar, restart

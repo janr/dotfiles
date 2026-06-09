@@ -93,8 +93,8 @@ tooltip {
   opacity: 0;
 }
 
-/* Occupied persistent workspace */
-#workspaces button.persistent,
+/* Occupied workspace */
+#workspaces button.hosting-monitor:not(.empty):not(.active):not(.visible),
 #custom-ws-10.occupied,
 #custom-ws-11.occupied,
 #custom-ws-12.occupied,
