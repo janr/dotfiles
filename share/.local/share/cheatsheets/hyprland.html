@@ -1,0 +1,192 @@
+<head>
+  <meta charset="utf-8" />
+  <title>Hyprland Cheatsheet</title>
+  <style>
+    :root {
+      --bg: #1e1e2e;
+      --panel: #313244;
+      --text: #cdd6f4;
+      --muted: #a6adc8;
+      --accent: #89dceb;
+      --key: #45475a;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 28px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, sans-serif;
+      font-size: 15px;
+    }
+
+    h1 {
+      margin: 0 0 18px;
+      font-size: 28px;
+      letter-spacing: -0.04em;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    section {
+      background: var(--panel);
+      border-radius: 14px;
+      padding: 16px;
+    }
+
+    h2 {
+      margin: 0 0 10px;
+      color: var(--accent);
+      font-size: 15px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 150px 1fr;
+      gap: 12px;
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .row:last-child {
+      border-bottom: 0;
+    }
+
+    kbd {
+      display: inline-block;
+      background: var(--key);
+      color: var(--text);
+      padding: 2px 7px;
+      border-radius: 6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .desc {
+      color: var(--muted);
+    }
+
+    @media (max-width: 1100px) {
+      .grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 720px) {
+      body {
+        padding: 18px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Hyprland Cheatsheet</h1>
+
+  <div class="grid">
+    <section>
+      <h2>Launchers</h2>
+      <div class="row"><div><kbd>Super+Return</kbd></div><div class="desc">open terminal</div></div>
+      <div class="row"><div><kbd>Super+R</kbd></div><div class="desc">open run prompt</div></div>
+    </section>
+
+    <section>
+      <h2>Cheatsheets</h2>
+      <div class="row"><div><kbd>Super+Shift+H</kbd></div><div class="desc">open Hyprland cheatsheet</div></div>
+      <div class="row"><div><kbd>Super+Shift+N</kbd></div><div class="desc">open Neovim cheatsheet</div></div>
+    </section>
+
+    <section>
+      <h2>Session</h2>
+      <div class="row"><div><kbd>Super+Ctrl+R</kbd></div><div class="desc">restart Hyprland session helpers</div></div>
+      <div class="row"><div><kbd>Super+Q</kbd></div><div class="desc">exit Hyprland</div></div>
+      <div class="row"><div><kbd>Super+F5</kbd></div><div class="desc">lower brightness</div></div>
+      <div class="row"><div><kbd>Super+F6</kbd></div><div class="desc">raise brightness</div></div>
+    </section>
+
+    <section>
+      <h2>Window Focus</h2>
+      <div class="row"><div><kbd>Super+J</kbd></div><div class="desc">focus next window</div></div>
+      <div class="row"><div><kbd>Super+K</kbd></div><div class="desc">focus previous window</div></div>
+      <div class="row"><div><kbd>Super+Tab</kbd></div><div class="desc">focus previous window</div></div>
+      <div class="row"><div><kbd>Super+Ctrl+J</kbd></div><div class="desc">focus next monitor</div></div>
+      <div class="row"><div><kbd>Super+Ctrl+K</kbd></div><div class="desc">focus previous monitor</div></div>
+      <div class="row"><div><kbd>Super+U</kbd></div><div class="desc">focus urgent or last window</div></div>
+    </section>
+
+    <section>
+      <h2>Window Actions</h2>
+      <div class="row"><div><kbd>Super+Shift+C</kbd></div><div class="desc">close active window</div></div>
+      <div class="row"><div><kbd>Super+F</kbd></div><div class="desc">toggle fullscreen</div></div>
+      <div class="row"><div><kbd>Super+M</kbd></div><div class="desc">toggle maximized fullscreen</div></div>
+      <div class="row"><div><kbd>Super+Ctrl+M</kbd></div><div class="desc">set internal fullscreen state</div></div>
+      <div class="row"><div><kbd>Super+Shift+M</kbd></div><div class="desc">set fullscreen and maximize state</div></div>
+      <div class="row"><div><kbd>Super+T</kbd></div><div class="desc">pin active window</div></div>
+      <div class="row"><div><kbd>Super+Ctrl+Shift+P</kbd></div><div class="desc">pin active window</div></div>
+    </section>
+
+    <section>
+      <h2>Window Layout</h2>
+      <div class="row"><div><kbd>Super+Space</kbd></div><div class="desc">swap active window with master</div></div>
+      <div class="row"><div><kbd>Super+Shift+L</kbd></div><div class="desc">remove a master window</div></div>
+      <div class="row"><div><kbd>Super+Ctrl+H</kbd></div><div class="desc">set master orientation left</div></div>
+      <div class="row"><div><kbd>Super+Ctrl+L</kbd></div><div class="desc">set master orientation right</div></div>
+      <div class="row"><div><kbd>Super+Shift+Space</kbd></div><div class="desc">cycle master orientation left/top</div></div>
+      <div class="row"><div><kbd>Super+Ctrl+Space</kbd></div><div class="desc">toggle floating</div></div>
+    </section>
+
+    <section>
+      <h2>Move / Resize</h2>
+      <div class="row"><div><kbd>Super+H</kbd></div><div class="desc">shrink active window width</div></div>
+      <div class="row"><div><kbd>Super+L</kbd></div><div class="desc">grow active window width</div></div>
+      <div class="row"><div><kbd>Super+O</kbd></div><div class="desc">move window to next monitor</div></div>
+      <div class="row"><div><kbd>Super+Shift+J</kbd></div><div class="desc">swap with next window</div></div>
+      <div class="row"><div><kbd>Super+Shift+K</kbd></div><div class="desc">swap with previous window</div></div>
+      <div class="row"><div><kbd>Super+Mouse1</kbd></div><div class="desc">move floating window</div></div>
+      <div class="row"><div><kbd>Super+Mouse2</kbd></div><div class="desc">resize floating window</div></div>
+    </section>
+
+    <section>
+      <h2>Workspace Navigation</h2>
+      <div class="row"><div><kbd>Super+1..9</kbd></div><div class="desc">switch laptop workspace</div></div>
+      <div class="row"><div><kbd>Super+Ctrl+1..9</kbd></div><div class="desc">switch external workspace</div></div>
+      <div class="row"><div><kbd>Super+Left</kbd></div><div class="desc">previous occupied workspace</div></div>
+      <div class="row"><div><kbd>Super+Right</kbd></div><div class="desc">next occupied workspace</div></div>
+      <div class="row"><div><kbd>Super+Up</kbd></div><div class="desc">first empty workspace</div></div>
+      <div class="row"><div><kbd>Super+Down</kbd></div><div class="desc">last empty workspace</div></div>
+      <div class="row"><div><kbd>Super+Escape</kbd></div><div class="desc">previous workspace</div></div>
+    </section>
+
+    <section>
+      <h2>Move To Workspace</h2>
+      <div class="row"><div><kbd>Super+Shift+1..9</kbd></div><div class="desc">move window to laptop workspace</div></div>
+      <div class="row"><div><kbd>Super+Ctrl+Shift+1..9</kbd></div><div class="desc">move window to external workspace</div></div>
+      <div class="row"><div><kbd>Super+Shift+Left</kbd></div><div class="desc">move window to previous workspace</div></div>
+      <div class="row"><div><kbd>Super+Shift+Right</kbd></div><div class="desc">move window to next workspace</div></div>
+      <div class="row"><div><kbd>Super+Shift+Up</kbd></div><div class="desc">move window to first empty workspace</div></div>
+      <div class="row"><div><kbd>Super+Shift+Down</kbd></div><div class="desc">move window to last empty workspace</div></div>
+    </section>
+
+    <section>
+      <h2>External Workspaces</h2>
+      <div class="row"><div><kbd>Super+Ctrl+Left</kbd></div><div class="desc">previous external workspace</div></div>
+      <div class="row"><div><kbd>Super+Ctrl+Right</kbd></div><div class="desc">next external workspace</div></div>
+      <div class="row"><div><kbd>10..18</kbd></div><div class="desc">external monitor workspace IDs</div></div>
+      <div class="row"><div><kbd>1..9</kbd></div><div class="desc">laptop monitor workspace IDs</div></div>
+    </section>
+  </div>
+</body>
