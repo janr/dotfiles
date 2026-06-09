@@ -78,6 +78,9 @@ The Waybar config is a compact top bar designed for the Hyprland workspace setup
 - Provides a system tray with 16px icons.
 - Shows PulseAudio volume, supports 5% scroll steps, and opens `pavucontrol` on
   click.
+- Shows current weather from `wttr.in`, using `WAYBAR_WEATHER_LOCATION` when it
+  is set and network-inferred location otherwise, with day/night icons based on
+  sunrise and sunset.
 - Shows battery charging, plugged, warning, and critical states.
 - Shows the clock as weekday, month, day, and 12-hour time, with an ISO date in
   the tooltip.

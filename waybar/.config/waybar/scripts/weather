@@ -1,0 +1,127 @@
+#!/usr/bin/env python3
+import json
+import os
+import sys
+import urllib.parse
+import urllib.request
+from datetime import datetime
+
+
+WEATHER_CODES = {
+    "113": ("󰖙", "󰖔", "clear"),
+    "116": ("󰖕", "󰼱", "partly-cloudy"),
+    "119": ("󰖐", "󰖐", "cloudy"),
+    "122": ("󰖐", "󰖐", "cloudy"),
+    "143": ("󰖑", "󰖑", "fog"),
+    "176": ("󰖗", "󰖗", "rain"),
+    "179": ("󰼶", "󰼶", "snow"),
+    "182": ("󰙿", "󰙿", "sleet"),
+    "185": ("󰙿", "󰙿", "sleet"),
+    "200": ("󰖓", "󰖓", "thunder"),
+    "227": ("󰖘", "󰖘", "snow"),
+    "230": ("󰖘", "󰖘", "snow"),
+    "248": ("󰖑", "󰖑", "fog"),
+    "260": ("󰖑", "󰖑", "fog"),
+    "263": ("󰖗", "󰖗", "rain"),
+    "266": ("󰖗", "󰖗", "rain"),
+    "281": ("󰙿", "󰙿", "sleet"),
+    "284": ("󰙿", "󰙿", "sleet"),
+    "293": ("󰖗", "󰖗", "rain"),
+    "296": ("󰖗", "󰖗", "rain"),
+    "299": ("󰖖", "󰖖", "rain"),
+    "302": ("󰖖", "󰖖", "rain"),
+    "305": ("󰖖", "󰖖", "rain"),
+    "308": ("󰖖", "󰖖", "rain"),
+    "311": ("󰙿", "󰙿", "sleet"),
+    "314": ("󰙿", "󰙿", "sleet"),
+    "317": ("󰙿", "󰙿", "sleet"),
+    "320": ("󰼶", "󰼶", "snow"),
+    "323": ("󰼶", "󰼶", "snow"),
+    "326": ("󰼶", "󰼶", "snow"),
+    "329": ("󰖘", "󰖘", "snow"),
+    "332": ("󰖘", "󰖘", "snow"),
+    "335": ("󰖘", "󰖘", "snow"),
+    "338": ("󰖘", "󰖘", "snow"),
+    "350": ("󰙿", "󰙿", "sleet"),
+    "353": ("󰖗", "󰖗", "rain"),
+    "356": ("󰖖", "󰖖", "rain"),
+    "359": ("󰖖", "󰖖", "rain"),
+    "362": ("󰙿", "󰙿", "sleet"),
+    "365": ("󰙿", "󰙿", "sleet"),
+    "368": ("󰼶", "󰼶", "snow"),
+    "371": ("󰖘", "󰖘", "snow"),
+    "374": ("󰙿", "󰙿", "sleet"),
+    "377": ("󰙿", "󰙿", "sleet"),
+    "386": ("󰖓", "󰖓", "thunder"),
+    "389": ("󰖓", "󰖓", "thunder"),
+    "392": ("󰙾", "󰙾", "thunder-snow"),
+    "395": ("󰖘", "󰖘", "snow"),
+}
+
+
+def emit(text, tooltip, css_class):
+    print(json.dumps({"text": text, "tooltip": tooltip, "class": css_class}))
+
+
+def parse_time(value):
+    return datetime.strptime(value.strip(), "%I:%M %p").time()
+
+
+def is_daytime(data):
+    current = data["current_condition"][0]
+    observed_text = current.get("localObsDateTime")
+    observed = (
+        datetime.strptime(observed_text, "%Y-%m-%d %I:%M %p")
+        if observed_text
+        else datetime.now()
+    )
+    astronomy = data["weather"][0]["astronomy"][0]
+    sunrise = parse_time(astronomy["sunrise"])
+    sunset = parse_time(astronomy["sunset"])
+    return sunrise <= observed.time() < sunset
+
+
+def main():
+    location = os.environ.get("WAYBAR_WEATHER_LOCATION", "").strip()
+    query = urllib.parse.quote(location) if location else ""
+    url = f"https://wttr.in/{query}?format=j1"
+
+    try:
+        request = urllib.request.Request(url, headers={"User-Agent": "waybar-weather"})
+        with urllib.request.urlopen(request, timeout=6) as response:
+            data = json.load(response)
+    except Exception as error:
+        emit("󰖐 --", f"Weather unavailable: {error}", "unavailable")
+        return 0
+
+    current = data["current_condition"][0]
+    nearest = data.get("nearest_area", [{}])[0]
+    area = nearest.get("areaName", [{}])[0].get("value", location or "Current location").strip()
+    region = nearest.get("region", [{}])[0].get("value", "").strip()
+    description = current["weatherDesc"][0]["value"].strip()
+    code = current["weatherCode"]
+    day_icon, night_icon, css_class = WEATHER_CODES.get(code, ("󰖐", "󰖐", "unknown"))
+    daylight = is_daytime(data)
+    icon = day_icon if daylight else night_icon
+
+    temp = current["temp_C"]
+    feels = current["FeelsLikeC"]
+    humidity = current["humidity"]
+    wind = current["windspeedKmph"]
+    precip = current["precipMM"]
+
+    place = f"{area}, {region}" if region else area
+    text = f"{icon} {temp}°C"
+    tooltip = (
+        f"{place}\n"
+        f"{description}, feels like {feels}°C\n"
+        f"Humidity {humidity}%  Wind {wind} km/h  Precip {precip} mm\n"
+        f"Sunrise {data['weather'][0]['astronomy'][0]['sunrise']}  "
+        f"Sunset {data['weather'][0]['astronomy'][0]['sunset']}"
+    )
+    emit(text, tooltip, f"{css_class} {'day' if daylight else 'night'}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

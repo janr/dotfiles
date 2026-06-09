@@ -22,6 +22,7 @@ tooltip {
 #workspaces-external,
 #window,
 #tray,
+#custom-weather,
 #pulseaudio,
 #network,
 #battery,
@@ -208,10 +209,39 @@ window#waybar.empty #window {
 }
 
 #pulseaudio,
+#custom-weather,
 #network,
 #battery,
 #clock {
   color: #cdd6f4;
+}
+
+#custom-weather.clear,
+#custom-weather.partly-cloudy {
+  color: #f9e2af;
+}
+
+#custom-weather.clear.night,
+#custom-weather.partly-cloudy.night {
+  color: #cba6f7;
+}
+
+#custom-weather.rain,
+#custom-weather.sleet,
+#custom-weather.thunder {
+  color: #89b4fa;
+}
+
+#custom-weather.snow,
+#custom-weather.thunder-snow {
+  color: #cba6f7;
+}
+
+#custom-weather.fog,
+#custom-weather.cloudy,
+#custom-weather.unknown,
+#custom-weather.unavailable {
+  color: #bac2de;
 }
 
 #battery.warning {
