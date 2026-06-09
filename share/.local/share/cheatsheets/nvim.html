@@ -1,0 +1,210 @@
+<head>
+  <meta charset="utf-8" />
+  <title>Neovim Cheatsheet</title>
+  <style>
+    :root {
+      --bg: #1e1e2e;
+      --panel: #313244;
+      --text: #cdd6f4;
+      --muted: #a6adc8;
+      --accent: #f5c2e7;
+      --key: #45475a;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 28px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, sans-serif;
+      font-size: 15px;
+    }
+
+    h1 {
+      margin: 0 0 18px;
+      font-size: 28px;
+      letter-spacing: -0.04em;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    section {
+      background: var(--panel);
+      border-radius: 14px;
+      padding: 16px;
+    }
+
+    h2 {
+      margin: 0 0 10px;
+      color: var(--accent);
+      font-size: 15px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 150px 1fr;
+      gap: 12px;
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .row:last-child {
+      border-bottom: 0;
+    }
+
+    kbd {
+      display: inline-block;
+      background: var(--key);
+      color: var(--text);
+      padding: 2px 7px;
+      border-radius: 6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .desc {
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <h1>Neovim Cheatsheet</h1>
+
+  <div class="grid">
+    <section>
+      <h2>LazyVim Navigation</h2>
+      <div class="row"><div><kbd>&lt;leader&gt;ff</kbd></div><div class="desc">find files</div></div>
+      <div class="row"><div><kbd>&lt;leader&gt;sg</kbd></div><div class="desc">live grep</div></div>
+      <div class="row"><div><kbd>&lt;leader&gt;sk</kbd></div><div class="desc">search keymaps</div></div>
+      <div class="row"><div><kbd>&lt;leader&gt;e</kbd></div><div class="desc">toggle file explorer</div></div>
+      <div class="row"><div><kbd>&lt;leader&gt;ss</kbd></div><div class="desc">jump to symbol</div></div>
+      <div class="row"><div><kbd>&lt;leader&gt;sS</kbd></div><div class="desc">workspace symbols</div></div>
+    </section>
+
+    <section>
+      <h2>Buffers / Windows</h2>
+      <div class="row"><div><kbd>:bd</kbd></div><div class="desc">close buffer</div></div>
+      <div class="row"><div><kbd>:b#</kbd></div><div class="desc">switch to previous buffer</div></div>
+      <div class="row"><div><kbd>Shift-h</kbd></div><div class="desc">previous buffer</div></div>
+      <div class="row"><div><kbd>Shift-l</kbd></div><div class="desc">next buffer</div></div>
+      <div class="row"><div><kbd>Ctrl-w h/j/k/l</kbd></div><div class="desc">move between splits</div></div>
+      <div class="row"><div><kbd>Ctrl-w o</kbd></div><div class="desc">close other windows</div></div>
+      <div class="row"><div><kbd>Ctrl-w =</kbd></div><div class="desc">equalize splits</div></div>
+    </section>
+
+    <section>
+      <h2>LSP / Code</h2>
+      <div class="row"><div><kbd>gd</kbd></div><div class="desc">go to definition</div></div>
+      <div class="row"><div><kbd>gr</kbd></div><div class="desc">references</div></div>
+      <div class="row"><div><kbd>gI</kbd></div><div class="desc">go to implementation</div></div>
+      <div class="row"><div><kbd>gy</kbd></div><div class="desc">go to type definition</div></div>
+      <div class="row"><div><kbd>K</kbd></div><div class="desc">hover docs</div></div>
+      <div class="row"><div><kbd>&lt;leader&gt;ca</kbd></div><div class="desc">code action</div></div>
+      <div class="row"><div><kbd>&lt;leader&gt;cr</kbd></div><div class="desc">rename symbol</div></div>
+      <div class="row"><div><kbd>&lt;leader&gt;cf</kbd></div><div class="desc">format buffer</div></div>
+    </section>
+
+    <section>
+      <h2>Text Objects</h2>
+      <div class="row"><div><kbd>iw</kbd></div><div class="desc">inner word</div></div>
+      <div class="row"><div><kbd>aw</kbd></div><div class="desc">a word, including space</div></div>
+      <div class="row"><div><kbd>ip</kbd></div><div class="desc">inner paragraph</div></div>
+      <div class="row"><div><kbd>i"</kbd></div><div class="desc">inside quotes</div></div>
+      <div class="row"><div><kbd>i)</kbd></div><div class="desc">inside parentheses</div></div>
+      <div class="row"><div><kbd>i}</kbd></div><div class="desc">inside braces</div></div>
+      <div class="row"><div><kbd>it</kbd></div><div class="desc">inside tag</div></div>
+    </section>
+
+    <section>
+      <h2>Diagnostics</h2>
+      <div class="row"><div><kbd>]d</kbd></div><div class="desc">next diagnostic</div></div>
+      <div class="row"><div><kbd>[d</kbd></div><div class="desc">previous diagnostic</div></div>
+      <div class="row"><div><kbd>&lt;leader&gt;cd</kbd></div><div class="desc">line diagnostic</div></div>
+      <div class="row"><div><kbd>&lt;leader&gt;xx</kbd></div><div class="desc">diagnostics list</div></div>
+      <div class="row"><div><kbd>&lt;leader&gt;xX</kbd></div><div class="desc">buffer diagnostics</div></div>
+      <div class="row"><div><kbd>:copen</kbd></div><div class="desc">open quickfix</div></div>
+      <div class="row"><div><kbd>:cnext</kbd></div><div class="desc">next quickfix item</div></div>
+    </section>
+
+    <section>
+      <h2>Operators</h2>
+      <div class="row"><div><kbd>d</kbd></div><div class="desc">delete</div></div>
+      <div class="row"><div><kbd>c</kbd></div><div class="desc">change</div></div>
+      <div class="row"><div><kbd>y</kbd></div><div class="desc">yank</div></div>
+      <div class="row"><div><kbd>=</kbd></div><div class="desc">indent/format motion</div></div>
+      <div class="row"><div><kbd>gq</kbd></div><div class="desc">reflow text motion</div></div>
+      <div class="row"><div><kbd>&gt;</kbd> <kbd>&lt;</kbd></div><div class="desc">indent / unindent</div></div>
+    </section>
+
+    <section>
+      <h2>Good Combos</h2>
+      <div class="row"><div><kbd>ciw</kbd></div><div class="desc">change word</div></div>
+      <div class="row"><div><kbd>daw</kbd></div><div class="desc">delete word + space</div></div>
+      <div class="row"><div><kbd>ci"</kbd></div><div class="desc">change inside quotes</div></div>
+      <div class="row"><div><kbd>dap</kbd></div><div class="desc">delete paragraph</div></div>
+      <div class="row"><div><kbd>=ip</kbd></div><div class="desc">indent paragraph</div></div>
+      <div class="row"><div><kbd>gqap</kbd></div><div class="desc">reflow paragraph</div></div>
+    </section>
+
+    <section>
+      <h2>Visual / Blocks</h2>
+      <div class="row"><div><kbd>v</kbd></div><div class="desc">visual select</div></div>
+      <div class="row"><div><kbd>V</kbd></div><div class="desc">visual line</div></div>
+      <div class="row"><div><kbd>Ctrl-v</kbd></div><div class="desc">visual block</div></div>
+      <div class="row"><div><kbd>I</kbd></div><div class="desc">insert at block start</div></div>
+      <div class="row"><div><kbd>A</kbd></div><div class="desc">append at block end</div></div>
+      <div class="row"><div><kbd>gv</kbd></div><div class="desc">reselect last visual selection</div></div>
+    </section>
+
+    <section>
+      <h2>Jumps / Marks</h2>
+      <div class="row"><div><kbd>Ctrl-o</kbd></div><div class="desc">jump back</div></div>
+      <div class="row"><div><kbd>Ctrl-i</kbd></div><div class="desc">jump forward</div></div>
+      <div class="row"><div><kbd>ma</kbd></div><div class="desc">set mark “a”</div></div>
+      <div class="row"><div><kbd>'a</kbd></div><div class="desc">jump to mark line</div></div>
+      <div class="row"><div><kbd>`a</kbd></div><div class="desc">jump to exact mark</div></div>
+      <div class="row"><div><kbd>''</kbd></div><div class="desc">jump to previous location</div></div>
+    </section>
+
+    <section>
+      <h2>Registers</h2>
+      <div class="row"><div><kbd>"0p</kbd></div><div class="desc">paste last yanked text</div></div>
+      <div class="row"><div><kbd>"+y</kbd></div><div class="desc">yank to system clipboard</div></div>
+      <div class="row"><div><kbd>"+p</kbd></div><div class="desc">paste from system clipboard</div></div>
+      <div class="row"><div><kbd>"_d</kbd></div><div class="desc">delete without clobbering yank</div></div>
+      <div class="row"><div><kbd>:reg</kbd></div><div class="desc">show registers</div></div>
+      <div class="row"><div><kbd>Ctrl-r "</kbd></div><div class="desc">insert register in insert mode</div></div>
+    </section>
+
+    <section>
+      <h2>Macros</h2>
+      <div class="row"><div><kbd>qa</kbd></div><div class="desc">record macro into register a</div></div>
+      <div class="row"><div><kbd>q</kbd></div><div class="desc">stop recording</div></div>
+      <div class="row"><div><kbd>@a</kbd></div><div class="desc">run macro a</div></div>
+      <div class="row"><div><kbd>@@</kbd></div><div class="desc">repeat last macro</div></div>
+      <div class="row"><div><kbd>5@a</kbd></div><div class="desc">run macro five times</div></div>
+      <div class="row"><div><kbd>:reg a</kbd></div><div class="desc">inspect macro contents</div></div>
+    </section>
+
+    <section>
+      <h2>Search / Replace</h2>
+      <div class="row"><div><kbd>*</kbd></div><div class="desc">search word under cursor</div></div>
+      <div class="row"><div><kbd>:%s/foo/bar/g</kbd></div><div class="desc">replace in file</div></div>
+      <div class="row"><div><kbd>:%s/foo/bar/gc</kbd></div><div class="desc">replace with confirm</div></div>
+      <div class="row"><div><kbd>:g/pat/d</kbd></div><div class="desc">delete matching lines</div></div>
+      <div class="row"><div><kbd>:v/pat/d</kbd></div><div class="desc">delete non-matching lines</div></div>
+      <div class="row"><div><kbd>:noh</kbd></div><div class="desc">clear search highlight</div></div>
+    </section>
+  </div>
+</body>

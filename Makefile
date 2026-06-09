@@ -1,4 +1,4 @@
-PACKAGES := bin hypr kitty nvim waybar
+PACKAGES := bin hypr kitty nvim share waybar
 TARGET := $(HOME)
 STOW := stow
 
