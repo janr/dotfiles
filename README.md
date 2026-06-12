@@ -33,8 +33,8 @@ Super-key driven workflow where possible.
 - Uses a 2x scale on the laptop panel (`eDP-1`) and places additional monitors
   above it with matching scale.
 - Enables focus-follow-mouse behavior.
-- Uses the Hyprland `master` layout with an Awesome-like master factor of
-  `0.618`, and supports toggling between left-master and top-master
+- Uses the Hyprland `master` layout with an Awesome-like master factor, and
+  supports toggling between left-master and top-master
   orientations with `SUPER+SHIFT+Space`.
 - Keeps a compact Awesome-like visual style: no gaps, simple borders, modest
   rounding, blur, glow accents, no shadows, and dimmed inactive windows.
