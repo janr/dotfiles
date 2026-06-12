@@ -39,6 +39,10 @@
       "on-scroll-up": "~/.config/hypr/scripts/awesome-workspaces prev",
       "on-scroll-down": "~/.config/hypr/scripts/awesome-workspaces next",
       "all-outputs": false,
+      "persistent-only": true,
+      "persistent-workspaces": {
+        "eDP-1": [1, 2, 3, 4, 5, 6, 7, 8, 9]
+      },
       "format": "{icon}",
       "ignore-workspaces": [
         "^10$",
@@ -89,6 +93,8 @@
       "exec": "~/.config/waybar/scripts/weather",
       "return-type": "json",
       "interval": 900,
+      "signal": 9,
+      "on-click": "pkill -RTMIN+9 waybar",
       "tooltip": true
     },
 
@@ -119,7 +125,7 @@
   {
     "layer": "top",
     "position": "top",
-    "output": "!eDP-1",
+    "output": ["!eDP-1", "*"],
     "height": 34,
     "margin-top": 0,
     "margin-left": 0,
@@ -182,6 +188,8 @@
       "exec": "~/.config/waybar/scripts/weather",
       "return-type": "json",
       "interval": 900,
+      "signal": 9,
+      "on-click": "pkill -RTMIN+9 waybar",
       "tooltip": true
     },
 

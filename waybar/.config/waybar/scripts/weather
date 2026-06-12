@@ -63,6 +63,10 @@ def emit(text, tooltip, css_class):
     print(json.dumps({"text": text, "tooltip": tooltip, "class": css_class}))
 
 
+def updated_at():
+    return datetime.now().strftime("%I:%M %p").lstrip("0")
+
+
 def parse_time(value):
     return datetime.strptime(value.strip(), "%I:%M %p").time()
 
@@ -91,7 +95,7 @@ def main():
         with urllib.request.urlopen(request, timeout=6) as response:
             data = json.load(response)
     except Exception as error:
-        emit("󰖐 --", f"Weather unavailable: {error}", "unavailable")
+        emit("󰖐 --", f"Weather unavailable: {error}\nUpdated {updated_at()}", "unavailable")
         return 0
 
     current = data["current_condition"][0]
@@ -117,7 +121,8 @@ def main():
         f"{description}, feels like {feels}°C\n"
         f"Humidity {humidity}%  Wind {wind} km/h  Precip {precip} mm\n"
         f"Sunrise {data['weather'][0]['astronomy'][0]['sunrise']}  "
-        f"Sunset {data['weather'][0]['astronomy'][0]['sunset']}"
+        f"Sunset {data['weather'][0]['astronomy'][0]['sunset']}\n"
+        f"Updated {updated_at()}"
     )
     emit(text, tooltip, f"{css_class} {'day' if daylight else 'night'}")
     return 0

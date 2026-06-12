@@ -66,6 +66,9 @@ if [ "$mode" = fallback ]; then
     printf '{"text":"","class":["external","hidden"]}\n'
     exit 0
   fi
+elif [ "$has_external" != true ]; then
+  printf '{"text":"","class":["external","hidden"]}\n'
+  exit 0
 fi
 
 if [ "$id" -eq "$focused" ] 2>/dev/null; then
