@@ -1,0 +1,69 @@
+# ~/.bash_functions
+
+act() {
+  local VENV_PATH=""
+  local DIR_NAME
+  DIR_NAME=$(basename "$PWD")
+
+  if [ -d "./.venv" ]; then
+    VENV_PATH="./.venv"
+  elif [ -d "./venv" ]; then
+    VENV_PATH="./venv"
+  fi
+
+  if [ -n "$VENV_PATH" ]; then
+    echo "Found existing environment at $VENV_PATH. Activating..."
+  else
+    if ! command -v python3 >/dev/null 2>&1; then
+      echo "python3 not found"
+      return 1
+    fi
+
+    echo "No virtual environment found. Creating one at ./.venv with prompt ($DIR_NAME)..."
+    python3 -m venv .venv --prompt "$DIR_NAME" || return 1
+    VENV_PATH="./.venv"
+  fi
+
+  if command -v deactivate >/dev/null 2>&1; then
+    deactivate
+  fi
+
+  export VIRTUAL_ENV_DISABLE_PROMPT=1
+  source "$VENV_PATH/bin/activate" || return 1
+  unset VIRTUAL_ENV_DISABLE_PROMPT
+
+  export _ACT_OLD_PS1="${PS1:-}"
+  PS1="($DIR_NAME) ${PS1:-}"
+
+  eval "$(declare -f deactivate | sed '1s/deactivate/_act_real_deactivate/')"
+
+  deactivate() {
+    _act_real_deactivate "$@"
+
+    if [ -n "${_ACT_OLD_PS1+x}" ]; then
+      PS1="$_ACT_OLD_PS1"
+      unset _ACT_OLD_PS1
+    fi
+
+    unset -f _act_real_deactivate
+    unset -f deactivate
+  }
+
+  echo "Environment active: $(python --version) at $VENV_PATH"
+}
+
+git() {
+  if [ "$1" = "checkout" ] && [ "$2" = "-b" ]; then
+    shift 2
+    printf '\a%s\n' "NOPE. Use: git switch -c $*"
+    return 2
+  fi
+
+  if [ "$1" = "checkout" ]; then
+    shift 1
+    printf '\a%s\n' "NOPE. Use: git switch $*"
+    return 2
+  fi
+
+  command git "$@"
+}

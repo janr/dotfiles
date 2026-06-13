@@ -1,0 +1,19 @@
+# ~/.bash_exports
+
+# PATH helpers
+path_prepend() {
+  case ":$PATH:" in
+    *":$1:"*) ;;
+    *) PATH="$1:$PATH" ;;
+  esac
+}
+
+path_prepend "$HOME/bin"
+path_prepend "$HOME/.local/bin"
+path_prepend "$HOME/.local/kitty.app/bin"
+path_prepend "$HOME/.local/share/lua-language-server/bin"
+
+export PATH
+
+export TERMINAL=kitty
+export TORCH_CUDA_ARCH_LIST="8.9"
