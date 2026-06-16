@@ -55,13 +55,13 @@ act() {
 git() {
   if [ "$1" = "checkout" ] && [ "$2" = "-b" ]; then
     shift 2
-    printf '\a%s\n' "NOPE. Use: git switch -c $*"
+    printf '\a\n\033[1;37;41m  STOP: USE GIT SWITCH  \033[0m\n\033[1;31m  git switch -c %s\033[0m\n\n' "$*"
     return 2
   fi
 
   if [ "$1" = "checkout" ]; then
     shift 1
-    printf '\a%s\n' "NOPE. Use: git switch $*"
+    printf '\a\n\033[1;37;41m  STOP: USE GIT SWITCH  \033[0m\n\033[1;31m  git switch %s\033[0m\n\n' "$*"
     return 2
   fi
 
