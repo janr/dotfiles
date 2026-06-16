@@ -150,16 +150,11 @@ reconcile() {
             fi
             hyprctl dispatch moveworkspacetomonitor "$i $external" >/dev/null 2>&1 || true
         else
-            hyprctl keyword workspace "$i, monitor:$primary, persistent:true" >/dev/null
             hyprctl dispatch moveworkspacetomonitor "$i $primary" >/dev/null 2>&1 || true
         fi
         i=$((i + 1))
     done
 
-}
-
-merge_external_if_disconnected() {
-    reconcile
 }
 
 activate_external_default_workspace() {
@@ -177,13 +172,13 @@ activate_external_default_workspace() {
 }
 
 switch_key() {
-    merge_external_if_disconnected
+    reconcile
     hyprctl dispatch workspace "$(workspace_for_key "$1")"
     refresh_waybar_workspaces
 }
 
 move_key() {
-    merge_external_if_disconnected
+    reconcile
     hyprctl dispatch movetoworkspace "$(workspace_for_key "$1")"
     refresh_waybar_workspaces
 }
@@ -236,7 +231,7 @@ select_relative_workspace() {
 relative_workspace() {
     direction="$1"
 
-    merge_external_if_disconnected
+    reconcile
 
     set -- $(relative_workspace_range)
     select_relative_workspace "$(occupied_workspace_range "$1" "$2")" "$direction"
@@ -249,7 +244,7 @@ all_relative_workspace() {
 external_relative_workspace() {
     direction="$1"
 
-    merge_external_if_disconnected
+    reconcile
 
     set -- $(relative_workspace_range)
     select_relative_workspace "$(workspace_range "$1" "$2")" "$direction"
@@ -270,7 +265,7 @@ relative_workspace_range() {
 }
 
 empty_workspace_range() {
-    merge_external_if_disconnected
+    reconcile
 
     monitor="$(focused_monitor)"
     if [ "$monitor" = "$(primary_monitor)" ]; then
