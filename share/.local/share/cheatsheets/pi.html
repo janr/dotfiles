@@ -1,0 +1,208 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Pi Cheatsheet</title>
+  <style>
+    :root {
+      --bg: #1e1e2e;
+      --panel: #313244;
+      --text: #cdd6f4;
+      --muted: #a6adc8;
+      --accent: #89dceb;
+      --key: #45475a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 28px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, sans-serif;
+      font-size: 15px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      letter-spacing: -0.04em;
+    }
+
+    .subtitle {
+      margin: 0 0 18px;
+      color: var(--muted);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    section {
+      background: var(--panel);
+      border-radius: 14px;
+      padding: 16px;
+    }
+
+    h2 {
+      margin: 0 0 10px;
+      color: var(--accent);
+      font-size: 15px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 170px 1fr;
+      gap: 12px;
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .row:last-child { border-bottom: 0; }
+
+    kbd, code {
+      display: inline-block;
+      background: var(--key);
+      color: var(--text);
+      padding: 2px 7px;
+      border-radius: 6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    code { white-space: normal; }
+    .desc { color: var(--muted); }
+    .wide { grid-column: span 2; }
+
+    @media (max-width: 1100px) {
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .wide { grid-column: span 1; }
+    }
+
+    @media (max-width: 760px) {
+      body { padding: 18px; }
+      .grid { grid-template-columns: 1fr; }
+      .row { grid-template-columns: 1fr; gap: 4px; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Pi Coding Harness Cheatsheet</h1>
+  <p class="subtitle">Minimal terminal coding agent: files, commands, sessions, models, extensions, skills, prompts.</p>
+
+  <div class="grid">
+    <section>
+      <h2>Hotkeys</h2>
+      <div class="row"><div><kbd>Ctrl+C</kbd></div><div class="desc">clear editor</div></div>
+      <div class="row"><div><kbd>Ctrl+C Ctrl+C</kbd></div><div class="desc">quit</div></div>
+      <div class="row"><div><kbd>Esc</kbd></div><div class="desc">cancel / abort</div></div>
+      <div class="row"><div><kbd>Esc Esc</kbd></div><div class="desc">open session tree</div></div>
+      <div class="row"><div><kbd>Ctrl+L</kbd></div><div class="desc">model selector</div></div>
+      <div class="row"><div><kbd>Ctrl+P</kbd></div><div class="desc">cycle scoped models</div></div>
+      <div class="row"><div><kbd>Shift+Tab</kbd></div><div class="desc">cycle thinking level</div></div>
+      <div class="row"><div><kbd>Ctrl+O</kbd></div><div class="desc">collapse/expand tool output</div></div>
+      <div class="row"><div><kbd>Ctrl+T</kbd></div><div class="desc">collapse/expand thinking blocks</div></div>
+    </section>
+
+    <section>
+      <h2>Slash Commands</h2>
+      <div class="row"><div><kbd>/login</kbd></div><div class="desc">authenticate with provider</div></div>
+      <div class="row"><div><kbd>/model</kbd></div><div class="desc">switch model</div></div>
+      <div class="row"><div><kbd>/settings</kbd></div><div class="desc">thinking, theme, delivery, transport</div></div>
+      <div class="row"><div><kbd>/hotkeys</kbd></div><div class="desc">show all shortcuts</div></div>
+      <div class="row"><div><kbd>/reload</kbd></div><div class="desc">reload keys, extensions, skills, prompts, context</div></div>
+      <div class="row"><div><kbd>/copy</kbd></div><div class="desc">copy last assistant message</div></div>
+      <div class="row"><div><kbd>/export [file]</kbd></div><div class="desc">export session HTML</div></div>
+      <div class="row"><div><kbd>/quit</kbd></div><div class="desc">exit pi</div></div>
+    </section>
+
+    <section>
+      <h2>Queue While Working</h2>
+      <div class="row"><div><kbd>Enter</kbd></div><div class="desc">queue steering message after current tool calls</div></div>
+      <div class="row"><div><kbd>Alt+Enter</kbd></div><div class="desc">queue follow-up after all work finishes</div></div>
+      <div class="row"><div><kbd>Esc</kbd></div><div class="desc">abort and restore queued messages</div></div>
+      <div class="row"><div><kbd>Alt+Up</kbd></div><div class="desc">pull queued message back into editor</div></div>
+    </section>
+
+    <section>
+      <h2>Start</h2>
+      <div class="row"><div><kbd>pi</kbd></div><div class="desc">interactive session</div></div>
+      <div class="row"><div><kbd>pi "task"</kbd></div><div class="desc">interactive with initial prompt</div></div>
+      <div class="row"><div><kbd>pi -p "task"</kbd></div><div class="desc">print response and exit</div></div>
+      <div class="row"><div><kbd>cat x | pi -p</kbd></div><div class="desc">pipe stdin into a one-shot prompt</div></div>
+      <div class="row"><div><kbd>pi @file "task"</kbd></div><div class="desc">attach file(s) to prompt</div></div>
+    </section>
+
+    <section>
+      <h2>Editor</h2>
+      <div class="row"><div><kbd>@</kbd></div><div class="desc">fuzzy-search project files</div></div>
+      <div class="row"><div><kbd>Tab</kbd></div><div class="desc">path completion</div></div>
+      <div class="row"><div><kbd>Shift+Enter</kbd></div><div class="desc">new line</div></div>
+      <div class="row"><div><kbd>Ctrl+V</kbd></div><div class="desc">paste image</div></div>
+      <div class="row"><div><kbd>!cmd</kbd></div><div class="desc">run shell command and send output to model</div></div>
+      <div class="row"><div><kbd>!!cmd</kbd></div><div class="desc">run shell command only</div></div>
+    </section>
+
+    <section>
+      <h2>Sessions</h2>
+      <div class="row"><div><kbd>pi -c</kbd></div><div class="desc">continue most recent session</div></div>
+      <div class="row"><div><kbd>pi -r</kbd></div><div class="desc">browse previous sessions</div></div>
+      <div class="row"><div><kbd>pi --no-session</kbd></div><div class="desc">ephemeral mode</div></div>
+      <div class="row"><div><kbd>pi --name "x"</kbd></div><div class="desc">name session at startup</div></div>
+      <div class="row"><div><kbd>/session</kbd></div><div class="desc">show file, ID, tokens, cost</div></div>
+      <div class="row"><div><kbd>/tree</kbd></div><div class="desc">jump around session tree</div></div>
+      <div class="row"><div><kbd>/fork</kbd></div><div class="desc">new session from previous user message</div></div>
+      <div class="row"><div><kbd>/clone</kbd></div><div class="desc">duplicate current active branch</div></div>
+      <div class="row"><div><kbd>/compact</kbd></div><div class="desc">summarize older context</div></div>
+    </section>
+
+    <section>
+      <h2>Models & Tools</h2>
+      <div class="row"><div><kbd>--model sonnet:high</kbd></div><div class="desc">model plus thinking shorthand</div></div>
+      <div class="row"><div><kbd>--thinking high</kbd></div><div class="desc">set thinking level</div></div>
+      <div class="row"><div><kbd>--models "a,b"</kbd></div><div class="desc">scope Ctrl+P cycling</div></div>
+      <div class="row"><div><kbd>--list-models</kbd></div><div class="desc">list available models</div></div>
+      <div class="row"><div><kbd>--tools read,grep,find,ls</kbd></div><div class="desc">read-only-ish review mode</div></div>
+      <div class="row"><div><kbd>--no-tools</kbd></div><div class="desc">disable all tools</div></div>
+      <div class="row"><div><kbd>--exclude-tools bash</kbd></div><div class="desc">disable a specific tool</div></div>
+    </section>
+
+    <section>
+      <h2>Customize</h2>
+      <div class="row"><div><kbd>AGENTS.md</kbd></div><div class="desc">project/global instructions</div></div>
+      <div class="row"><div><kbd>.pi/settings.json</kbd></div><div class="desc">project settings</div></div>
+      <div class="row"><div><kbd>~/.pi/agent/settings.json</kbd></div><div class="desc">global settings</div></div>
+      <div class="row"><div><kbd>.pi/SYSTEM.md</kbd></div><div class="desc">replace system prompt</div></div>
+      <div class="row"><div><kbd>APPEND_SYSTEM.md</kbd></div><div class="desc">append to system prompt</div></div>
+      <div class="row"><div><kbd>prompts/*.md</kbd></div><div class="desc">slash prompt templates</div></div>
+      <div class="row"><div><kbd>skills/*/SKILL.md</kbd></div><div class="desc">on-demand capabilities</div></div>
+      <div class="row"><div><kbd>extensions/*.ts</kbd></div><div class="desc">tools, commands, UI, event hooks</div></div>
+    </section>
+
+    <section>
+      <h2>Packages</h2>
+      <div class="row"><div><kbd>pi install npm:x</kbd></div><div class="desc">install pi package</div></div>
+      <div class="row"><div><kbd>pi install git:host/u/r</kbd></div><div class="desc">install from git</div></div>
+      <div class="row"><div><kbd>pi install -l ...</kbd></div><div class="desc">project-local install</div></div>
+      <div class="row"><div><kbd>pi list</kbd></div><div class="desc">list packages</div></div>
+      <div class="row"><div><kbd>pi config</kbd></div><div class="desc">enable/disable package resources</div></div>
+      <div class="row"><div><kbd>pi update</kbd></div><div class="desc">update pi and packages</div></div>
+      <div class="row"><div><kbd>pi remove npm:x</kbd></div><div class="desc">remove package</div></div>
+    </section>
+
+    <section class="wide">
+      <h2>Useful Patterns</h2>
+      <div class="row"><div><code>pi -p @screenshot.png "What's in this image?"</code></div><div class="desc">ask about an image</div></div>
+      <div class="row"><div><code>pi --tools read,grep,find,ls -p "Review this repo"</code></div><div class="desc">review without write/bash/edit</div></div>
+      <div class="row"><div><code>pi --no-extensions -e ./my-ext.ts</code></div><div class="desc">test exactly one extension</div></div>
+      <div class="row"><div><code>PI_OFFLINE=1 pi</code></div><div class="desc">disable startup network operations</div></div>
+    </section>
+  </div>
+</body>
+</html>

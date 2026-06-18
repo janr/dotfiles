@@ -51,6 +51,8 @@ Super-key driven workflow where possible.
 - Includes bindings for window cycling, swapping, moving between workspaces,
   fullscreen modes, pinning, moving windows across monitors, and swapping with
   the master window.
+- Includes local cheatsheets for Hyprland (`SUPER+SHIFT+H`), Neovim
+  (`SUPER+SHIFT+N`), and Pi (`SUPER+SHIFT+P`).
 - Supports `SUPER+Left/Right` for occupied-workspace navigation across `1-18`
   with one connected display, or within the focused display's workspace set with
   multiple connected displays.
