@@ -1,0 +1,115 @@
+#!/usr/bin/env python3
+import copy
+import json
+import os
+import re
+import subprocess
+import time
+from pathlib import Path
+
+LAPTOP = "eDP-1"
+CONFIG = Path.home() / ".config/waybar/config.jsonc"
+GENERATED = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "waybar/config.generated.jsonc"
+
+
+def lid_closed():
+    for p in Path("/proc/acpi/button/lid").glob("*/state"):
+        try:
+            if "closed" in p.read_text().lower():
+                return True
+        except OSError:
+            pass
+    return False
+
+
+def monitors():
+    try:
+        out = subprocess.check_output(["hyprctl", "monitors"], text=True, timeout=2)
+    except Exception:
+        return []
+    return re.findall(r"^Monitor (\S+)", out, re.M)
+
+
+def restart_waybar():
+    subprocess.run(["pkill", "-x", "waybar"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    style = Path.home() / ".config/waybar/style.css"
+    cmd = ["waybar", "-c", str(GENERATED)]
+    if style.exists():
+        cmd += ["-s", str(style)]
+    subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+
+
+def workspace_icons():
+    icons = {}
+    for ws in range(1, 28):
+        icons[str(ws)] = str(((ws - 1) % 9) + 1)
+    return icons
+
+
+def ignore_regex_for_bank(bank):
+    if bank == 1:
+        return r"^(1[0-9]|2[0-7])$"
+    if bank == 2:
+        return r"^([1-9]|2[0-7])$"
+    return r"^([1-9]|1[0-8])$"
+
+
+def configure_bar(template, output, bank):
+    bar = copy.deepcopy(template)
+    module = f"hyprland/workspaces#bank{bank}"
+    old_module = next(m for m in bar["modules-left"] if m.startswith("hyprland/workspaces"))
+
+    bar["output"] = output
+    bar["modules-left"] = [module if m == old_module else m for m in bar["modules-left"]]
+    bar[module] = bar.pop(old_module)
+
+    start = 1 + (bank - 1) * 9
+    workspaces = list(range(start, start + 9))
+    ws = bar[module]
+    ws["on-scroll-up"] = "~/.config/hypr/scripts/awesome-workspaces prev"
+    ws["on-scroll-down"] = "~/.config/hypr/scripts/awesome-workspaces next"
+    ws["all-outputs"] = False
+    ws["persistent-workspaces"] = {output: workspaces}
+    ws["format"] = "{icon}"
+    ws["format-icons"] = workspace_icons()
+    # Do not ignore other banks here: when a display disappears, Hyprland can
+    # temporarily attach occupied orphaned workspaces to a remaining output.
+    # CSS hides only empty non-hosting workspaces, allowing occupied orphans to
+    # remain visible until their windows are moved away.
+    ws.pop("ignore-workspaces", None)
+    return bar
+
+
+def main():
+    base = json.loads(CONFIG.read_text())
+    primary_template = base[0]
+    secondary_template = base[1]
+
+    mons = []
+    for _ in range(20):
+        mons = monitors()
+        if mons:
+            break
+        time.sleep(0.25)
+    externals = [m for m in mons if m != LAPTOP]
+
+    if lid_closed() and externals:
+        ordered = externals
+    else:
+        ordered = ([LAPTOP] if LAPTOP in mons or not externals else []) + externals
+
+    if not ordered:
+        ordered = [LAPTOP]
+
+    data = []
+    for index, output in enumerate(ordered[:3], start=1):
+        template = primary_template if index == 1 else secondary_template
+        data.append(configure_bar(template, output, index))
+
+    GENERATED.parent.mkdir(parents=True, exist_ok=True)
+    GENERATED.write_text(json.dumps(data, indent=2) + "\n")
+    restart_waybar()
+
+
+if __name__ == "__main__":
+    main()

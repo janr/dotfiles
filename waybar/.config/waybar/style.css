@@ -48,9 +48,10 @@ tooltip {
   margin: 4px 2px;
 }
 
-/* Only show workspaces assigned to this bar's monitor. This prevents stale
-   hotplug assignments from rendering both the laptop and external sets. */
-#workspaces button:not(.hosting-monitor) {
+/* Hide empty workspaces that Waybar still sees on this output but that are
+   not assigned to this bar. Occupied orphaned workspaces remain visible until
+   their windows are moved away. */
+#workspaces button.empty:not(.hosting-monitor) {
   color: transparent;
   background: transparent;
   border: 0;
@@ -63,7 +64,7 @@ tooltip {
 }
 
 /* Occupied workspace */
-#workspaces button.hosting-monitor:not(.empty):not(.active):not(.visible) {
+#workspaces button:not(.empty):not(.active):not(.visible) {
   color: #cdd6f4;
   background: rgba(205, 214, 244, 0.12);
   box-shadow: inset 0 0 0 1px rgba(205, 214, 244, 0.10);

@@ -6,6 +6,7 @@ config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
 hypr_dir="$config_home/hypr"
 waybar_dir="$config_home/waybar"
 workspace_script="$hypr_dir/scripts/awesome-workspaces"
+waybar_update_script="$hypr_dir/scripts/update-waybar"
 
 log() {
     printf '%s\n' "$*"
@@ -95,7 +96,10 @@ reload_hyprland() {
 }
 
 restart_waybar() {
-    if [ -f "$waybar_dir/config.jsonc" ]; then
+    if [ -x "$waybar_update_script" ]; then
+        "$waybar_update_script"
+        log "restarted: waybar dynamic config"
+    elif [ -f "$waybar_dir/config.jsonc" ]; then
         restart_process_name waybar waybar -c "$waybar_dir/config.jsonc" -s "$waybar_dir/style.css"
     else
         restart_process_name waybar waybar

@@ -40,12 +40,44 @@ primary_monitor() {
     '
 }
 
-external_monitor() {
+monitor_for_bank() {
+    bank="$1"
     primary="$(primary_monitor)"
 
-    hyprctl monitors | awk -v primary="$primary" '
-        /^Monitor / && $2 != primary { print $2; exit }
+    hyprctl monitors | awk -v primary="$primary" -v bank="$bank" '
+        /^Monitor / {
+            if ($2 == primary) bank_for[$2] = 1
+            else externals[++external_count] = $2
+        }
+        END {
+            if (bank == 1) print primary
+            else print externals[bank - 1]
+        }
     '
+}
+
+external_monitor() {
+    monitor_for_bank 2
+}
+
+monitor_bank() {
+    monitor="$1"
+    primary="$(primary_monitor)"
+
+    hyprctl monitors | awk -v monitor="$monitor" -v primary="$primary" '
+        /^Monitor / {
+            if ($2 == primary) bank[$2] = 1
+            else bank[$2] = ++external_count + 1
+        }
+        END { print bank[monitor] ? bank[monitor] : 1 }
+    '
+}
+
+range_for_bank() {
+    bank="$1"
+    start=$((1 + (bank - 1) * 9))
+    end=$((start + 8))
+    echo "$start $end"
 }
 
 monitor_count() {
@@ -102,7 +134,7 @@ occupied_workspaces() {
         /^workspace ID/ { id = $3; windows = 0 }
         /^[[:space:]]*windows:/ {
             windows = $2
-            if (id >= 1 && id <= 18 && windows > 0) {
+            if (id >= 1 && id <= 27 && windows > 0) {
                 print id
             }
         }
@@ -111,7 +143,7 @@ occupied_workspaces() {
 
 all_workspaces() {
     i=1
-    while [ "$i" -le 18 ]; do
+    while [ "$i" -le 27 ]; do
         echo "$i"
         i=$((i + 1))
     done
@@ -137,16 +169,36 @@ occupied_workspace_range() {
     '
 }
 
+focused_monitor_bank() {
+    hyprctl monitors | awk -v laptop="$laptop" -v lid_is_closed="$(lid_closed && echo yes || echo no)" '
+        /^Monitor / {
+            order[++count] = $2
+            if (!first) first = $2
+            if ($2 == laptop) laptop_found = $2
+            current = $2
+        }
+        /focused: yes/ { focused = current }
+        END {
+            if (lid_is_closed != "yes" && laptop_found) primary = laptop_found
+            else {
+                for (i = 1; i <= count; i++) if (order[i] != laptop) { primary = order[i]; break }
+                if (!primary) primary = first
+            }
+
+            external_count = 0
+            for (i = 1; i <= count; i++) {
+                if (order[i] == primary) bank[order[i]] = 1
+                else bank[order[i]] = ++external_count + 1
+            }
+            print bank[focused] ? bank[focused] : 1
+        }
+    '
+}
+
 workspace_for_key() {
     key="$1"
-    monitor="$(focused_monitor)"
-    primary="$(primary_monitor)"
-
-    if [ "$(monitor_count)" -le 1 ] || [ "$monitor" = "$primary" ]; then
-        echo "$key"
-    else
-        echo $((key + 9))
-    fi
+    bank="$(focused_monitor_bank)"
+    echo $((key + (bank - 1) * 9))
 }
 
 move_workspace_windows() {
@@ -165,35 +217,38 @@ reconcile() {
     apply_lid_monitor_state
 
     primary="$(primary_monitor)"
-    external="$(external_monitor)"
 
     [ -z "$primary" ] && primary="$laptop"
 
-    i=1
-    while [ "$i" -le 9 ]; do
-        if [ "$i" -eq 1 ]; then
-            hyprctl keyword workspace "$i, monitor:$primary, persistent:true, default:true" >/dev/null
-        else
-            hyprctl keyword workspace "$i, monitor:$primary, persistent:true" >/dev/null
-        fi
-        i=$((i + 1))
-    done
+    bank=1
+    while [ "$bank" -le 3 ]; do
+        monitor="$(monitor_for_bank "$bank")"
 
-    i=10
-    while [ "$i" -le 18 ]; do
-        if [ -n "$external" ]; then
-            if [ "$i" -eq 10 ]; then
-                hyprctl keyword workspace "$i, monitor:$external, persistent:true, default:true" >/dev/null
+        set -- $(range_for_bank "$bank")
+        start="$1"
+        end="$2"
+
+        i="$start"
+        while [ "$i" -le "$end" ]; do
+            if [ -n "$monitor" ]; then
+                if [ "$i" -eq "$start" ]; then
+                    hyprctl keyword workspace "$i, monitor:$monitor, persistent:true, default:true" >/dev/null
+                else
+                    hyprctl keyword workspace "$i, monitor:$monitor, persistent:true" >/dev/null
+                fi
+                hyprctl dispatch moveworkspacetomonitor "$i $monitor" >/dev/null 2>&1 || true
             else
-                hyprctl keyword workspace "$i, monitor:$external, persistent:true" >/dev/null
+                # No physical display owns this bank right now. Do not keep
+                # empty persistent workspaces alive on another monitor; Hyprland
+                # may still show occupied orphaned workspaces until their
+                # windows are moved away, which is what we want.
+                hyprctl keyword workspace "$i, persistent:false" >/dev/null 2>&1 || true
             fi
-            hyprctl dispatch moveworkspacetomonitor "$i $external" >/dev/null 2>&1 || true
-        else
-            hyprctl dispatch moveworkspacetomonitor "$i $primary" >/dev/null 2>&1 || true
-        fi
-        i=$((i + 1))
-    done
+            i=$((i + 1))
+        done
 
+        bank=$((bank + 1))
+    done
 }
 
 activate_external_default_workspace() {
@@ -211,13 +266,11 @@ activate_external_default_workspace() {
 }
 
 switch_key() {
-    reconcile
     hyprctl dispatch workspace "$(workspace_for_key "$1")"
     refresh_waybar_workspaces
 }
 
 move_key() {
-    reconcile
     hyprctl dispatch movetoworkspace "$(workspace_for_key "$1")"
     refresh_waybar_workspaces
 }
@@ -270,10 +323,8 @@ select_relative_workspace() {
 relative_workspace() {
     direction="$1"
 
-    reconcile
-
     set -- $(relative_workspace_range)
-    select_relative_workspace "$(occupied_workspace_range "$1" "$2")" "$direction"
+    select_relative_workspace "$(workspace_range "$1" "$2")" "$direction"
 }
 
 all_relative_workspace() {
@@ -283,35 +334,21 @@ all_relative_workspace() {
 external_relative_workspace() {
     direction="$1"
 
-    reconcile
-
     set -- $(relative_workspace_range)
     select_relative_workspace "$(workspace_range "$1" "$2")" "$direction"
 }
 
 relative_workspace_range() {
     if [ "$(monitor_count)" -le 1 ]; then
-        echo "1 18"
+        echo "1 27"
         return
     fi
 
-    monitor="$(focused_monitor)"
-    if [ "$monitor" = "$(primary_monitor)" ]; then
-        echo "1 9"
-    else
-        echo "10 18"
-    fi
+    range_for_bank "$(focused_monitor_bank)"
 }
 
 empty_workspace_range() {
-    reconcile
-
-    monitor="$(focused_monitor)"
-    if [ "$monitor" = "$(primary_monitor)" ]; then
-        echo "1 9"
-    else
-        echo "10 18"
-    fi
+    range_for_bank "$(focused_monitor_bank)"
 }
 
 empty_workspace() {
