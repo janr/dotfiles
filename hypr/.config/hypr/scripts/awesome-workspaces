@@ -6,6 +6,14 @@ refresh_waybar_workspaces() {
     pkill -RTMIN+8 waybar >/dev/null 2>&1 || true
 }
 
+update_waybar() {
+    if [ -x "$HOME/.config/hypr/scripts/update-waybar" ]; then
+        "$HOME/.config/hypr/scripts/update-waybar" >/dev/null 2>&1 || true
+    else
+        refresh_waybar_workspaces
+    fi
+}
+
 focused_monitor() {
     hyprctl monitors | awk '
         /^Monitor / { monitor = $2 }
@@ -15,7 +23,7 @@ focused_monitor() {
 }
 
 primary_monitor() {
-    hyprctl monitors | awk -v laptop="$laptop" '
+    hyprctl monitors | awk -v laptop="$laptop" -v lid_is_closed="$(lid_closed && echo yes || echo no)" '
         /^Monitor / {
             if (!first) first = $2
             if ($2 == laptop) laptop_found = $2
@@ -23,9 +31,11 @@ primary_monitor() {
         }
         /focused: yes/ { focused = monitor }
         END {
-            if (laptop_found) print laptop_found
-            else if (focused) print focused
-            else print first
+            if (lid_is_closed != "yes" && laptop_found) print laptop_found
+            else if (first && first != laptop) print first
+            else if (focused && focused != laptop) print focused
+            else if (first) print first
+            else print laptop_found
         }
     '
 }
@@ -43,6 +53,33 @@ monitor_count() {
         /^Monitor / { count++ }
         END { print count + 0 }
     '
+}
+
+lid_closed() {
+    for state in /proc/acpi/button/lid/*/state; do
+        [ -r "$state" ] || continue
+        grep -qi 'closed' "$state" && return 0
+    done
+
+    return 1
+}
+
+external_monitor_count() {
+    hyprctl monitors | awk -v laptop="$laptop" '
+        /^Monitor / && $2 != laptop { count++ }
+        END { print count + 0 }
+    '
+}
+
+apply_lid_monitor_state() {
+    # When docked with the lid closed, remove the laptop panel so the first
+    # external receives workspaces 1-9. Re-enable it when the lid opens, or if
+    # no external monitor remains, to avoid getting stuck with no display.
+    if lid_closed && [ "$(external_monitor_count)" -gt 0 ]; then
+        hyprctl keyword monitor "$laptop,disable" >/dev/null 2>&1 || true
+    else
+        hyprctl keyword monitor "$laptop,preferred,0x0,2" >/dev/null 2>&1 || true
+    fi
 }
 
 monitor_signature() {
@@ -125,6 +162,8 @@ move_workspace_windows() {
 }
 
 reconcile() {
+    apply_lid_monitor_state
+
     primary="$(primary_monitor)"
     external="$(external_monitor)"
 
@@ -341,39 +380,28 @@ move_to_last_empty_workspace() {
 
 watch() {
     reconcile
-    refresh_waybar_workspaces
+    update_waybar
 
-    if command -v socat >/dev/null 2>&1 && [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ]; then
-        socket="$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock"
-        socat - UNIX-CONNECT:"$socket" | while read -r event; do
-            case "$event" in
-                monitoradded*|monitorremoved*)
-                    reconcile
-                    sleep 0.25
-                    reconcile
-                    sleep 1
-                    reconcile
-                    activate_external_default_workspace
-                    refresh_waybar_workspaces
-                    ;;
-            esac
-        done
-    else
-        previous_monitors="$(monitor_signature)"
+    previous_monitors="$(monitor_signature)"
+    previous_lid="$(lid_closed && echo closed || echo open)"
 
-        while sleep 1; do
-            current_monitors="$(monitor_signature)"
+    while sleep 1; do
+        current_monitors="$(monitor_signature)"
+        current_lid="$(lid_closed && echo closed || echo open)"
+
+        reconcile
+
+        if [ "$current_monitors" != "$previous_monitors" ] || [ "$current_lid" != "$previous_lid" ]; then
+            sleep 0.25
             reconcile
-
-            if [ "$current_monitors" != "$previous_monitors" ]; then
-                sleep 0.25
-                reconcile
-                activate_external_default_workspace
-                refresh_waybar_workspaces
-                previous_monitors="$(monitor_signature)"
-            fi
-        done
-    fi
+            sleep 0.75
+            reconcile
+            activate_external_default_workspace
+            update_waybar
+            previous_monitors="$(monitor_signature)"
+            previous_lid="$(lid_closed && echo closed || echo open)"
+        fi
+    done
 }
 
 restart_watch() {
@@ -387,6 +415,7 @@ restart_watch() {
 
 case "$1" in
     reconcile) reconcile ;;
+    update-waybar) update_waybar ;;
     watch) watch ;;
     restart-watch) restart_watch ;;
     switch) switch_key "$2" ;;
