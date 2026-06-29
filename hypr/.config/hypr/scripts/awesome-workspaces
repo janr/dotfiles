@@ -80,6 +80,16 @@ range_for_bank() {
     echo "$start $end"
 }
 
+workspace_layout_options_for_monitor() {
+    monitor="$1"
+
+    # Portrait display: stack master/slave areas vertically instead of splitting
+    # left/right, which fits the narrow rotated monitor better.
+    if [ "$monitor" = "DP-11" ]; then
+        printf ', layoutopt:orientation:top'
+    fi
+}
+
 monitor_count() {
     hyprctl monitors | awk '
         /^Monitor / { count++ }
@@ -126,6 +136,16 @@ active_workspace_id() {
         /^Monitor / { active = "" }
         /active workspace:/ { active = $3 }
         /focused: yes/ { print active; exit }
+    '
+}
+
+active_workspace_for_monitor() {
+    monitor_name="$1"
+
+    hyprctl monitors | awk -v monitor_name="$monitor_name" '
+        /^Monitor / { monitor = $2; active = "" }
+        /active workspace:/ { active = $3 }
+        monitor == monitor_name && /active workspace:/ { print active; exit }
     '
 }
 
@@ -205,12 +225,42 @@ move_workspace_windows() {
     from="$1"
     to="$2"
 
-    hyprctl clients | awk -v from="$from" '
-        /^Window / { address = $2 }
-        /workspace:/ && $2 == from { print address }
+    # Use JSON here because the text output prints window addresses without the
+    # 0x prefix, while Hyprland's address selector expects address:0x...
+    hyprctl clients -j | jq -r --argjson from "$from" '
+        .[] | select(.workspace.id == $from) | .address
     ' | while read -r address; do
         [ -n "$address" ] && hyprctl dispatch movetoworkspacesilent "$to,address:$address" >/dev/null
     done
+}
+
+swap_current_bank_with_main() {
+    current_bank="$(focused_monitor_bank)"
+
+    # The main display already owns workspaces 1-9. Only do the swap when an
+    # external/non-main display is focused.
+    [ "$current_bank" -eq 1 ] && exit 0
+
+    main_monitor="$(monitor_for_bank 1)"
+    current_monitor="$(monitor_for_bank "$current_bank")"
+    [ -n "$main_monitor" ] && [ -n "$current_monitor" ] || exit 0
+
+    main_ws="$(active_workspace_for_monitor "$main_monitor")"
+    current_ws="$(active_workspace_for_monitor "$current_monitor")"
+
+    case "$main_ws:$current_ws" in
+        *[!0-9:]*|:*) exit 0 ;;
+    esac
+
+    # Only swap the two visible workspaces. This avoids the disorienting flash
+    # from moving all 9 workspaces and then changing each monitor's selection.
+    scratch_ws=28
+    move_workspace_windows "$main_ws" "$scratch_ws"
+    move_workspace_windows "$current_ws" "$main_ws"
+    move_workspace_windows "$scratch_ws" "$current_ws"
+
+    reconcile
+    update_waybar
 }
 
 reconcile() {
@@ -231,10 +281,11 @@ reconcile() {
         i="$start"
         while [ "$i" -le "$end" ]; do
             if [ -n "$monitor" ]; then
+                layout_options="$(workspace_layout_options_for_monitor "$monitor")"
                 if [ "$i" -eq "$start" ]; then
-                    hyprctl keyword workspace "$i, monitor:$monitor, persistent:true, default:true" >/dev/null
+                    hyprctl keyword workspace "$i, monitor:$monitor, persistent:true, default:true$layout_options" >/dev/null
                 else
-                    hyprctl keyword workspace "$i, monitor:$monitor, persistent:true" >/dev/null
+                    hyprctl keyword workspace "$i, monitor:$monitor, persistent:true$layout_options" >/dev/null
                 fi
                 hyprctl dispatch moveworkspacetomonitor "$i $monitor" >/dev/null 2>&1 || true
             else
@@ -463,7 +514,8 @@ case "$1" in
     last-empty) last_empty_workspace ;;
     move-first-empty) move_to_first_empty_workspace ;;
     move-last-empty) move_to_last_empty_workspace ;;
+    swap-main) swap_current_bank_with_main ;;
     external-prev) external_relative_workspace prev ;;
     external-next) external_relative_workspace next ;;
-    *) echo "usage: $0 reconcile|watch|restart-watch|switch N|move N|prev|next|first-empty|last-empty|move-first-empty|move-last-empty|external-prev|external-next" >&2; exit 2 ;;
+    *) echo "usage: $0 reconcile|watch|restart-watch|switch N|move N|prev|next|first-empty|last-empty|move-first-empty|move-last-empty|swap-main|external-prev|external-next" >&2; exit 2 ;;
 esac
