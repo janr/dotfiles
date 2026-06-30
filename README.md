@@ -33,9 +33,11 @@ Super-key driven workflow where possible.
 - Uses a 2x scale on the laptop panel (`eDP-1`) and places additional monitors
   above it with matching scale.
 - Enables focus-follow-mouse behavior.
-- Uses the Hyprland `master` layout with an Awesome-like master factor, and
-  supports toggling between left-master and top-master
-  orientations with `SUPER+SHIFT+Space`.
+- Uses the Hyprland `master` layout with an Awesome-like master factor.
+- Defaults the portrait Samsung display to a top-master orientation so windows
+  stack vertically on the rotated monitor.
+- Supports rotating the master layout orientation counter-clockwise with
+  `SUPER+,` and clockwise with `SUPER+.`.
 - Keeps a compact Awesome-like visual style: no gaps, simple borders, modest
   rounding, blur, glow accents, no shadows, and dimmed inactive windows.
 - Adds floating and centered rules for common dialogs, file pickers, portal

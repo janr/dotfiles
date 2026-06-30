@@ -84,8 +84,14 @@ workspace_layout_options_for_monitor() {
     monitor="$1"
 
     # Portrait display: stack master/slave areas vertically instead of splitting
-    # left/right, which fits the narrow rotated monitor better.
-    if [ "$monitor" = "DP-11" ]; then
+    # left/right, which fits the narrow rotated monitor better. Match by monitor
+    # description instead of connector name because DP-* names can change.
+    if hyprctl monitors -j 2>/dev/null | jq -e --arg monitor "$monitor" '
+        .[] | select(
+            .name == $monitor
+            and (.description | test("Samsung Electric Company LU28R55|Samsung"; "i"))
+        )
+    ' >/dev/null 2>&1; then
         printf ', layoutopt:orientation:top'
     fi
 }

@@ -1,0 +1,26 @@
+#!/bin/sh
+
+# Open local cheatsheets on the main Acer display and leave focus there so the
+# popup can be closed from the keyboard.
+
+case "$1" in
+    hyprland) file="$HOME/.local/share/cheatsheets/hyprland.html" ;;
+    nvim) file="$HOME/.local/share/cheatsheets/nvim.html" ;;
+    pi) file="$HOME/.local/share/cheatsheets/pi.html" ;;
+    *) echo "usage: $0 hyprland|nvim|pi" >&2; exit 2 ;;
+esac
+
+main_monitor() {
+    hyprctl monitors -j | jq -r '
+        (.[] | select(.description | test("Acer Technologies Acer RT280K|Acer"; "i")) | .name),
+        (.[0].name)
+    ' | head -n 1
+}
+
+main="$(main_monitor)"
+
+if [ -n "$main" ] && [ "$main" != "null" ]; then
+    hyprctl dispatch focusmonitor "$main" >/dev/null 2>&1 || true
+fi
+
+google-chrome --app="file://$file" >/dev/null 2>&1 &
