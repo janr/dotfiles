@@ -483,8 +483,6 @@ watch() {
         current_monitors="$(monitor_signature)"
         current_lid="$(lid_closed && echo closed || echo open)"
 
-        reconcile
-
         if [ "$current_monitors" != "$previous_monitors" ] || [ "$current_lid" != "$previous_lid" ]; then
             sleep 0.25
             reconcile
