@@ -381,7 +381,7 @@ relative_workspace() {
     direction="$1"
 
     set -- $(relative_workspace_range)
-    select_relative_workspace "$(workspace_range "$1" "$2")" "$direction"
+    select_relative_workspace "$(occupied_workspace_range "$1" "$2")" "$direction"
 }
 
 all_relative_workspace() {
@@ -391,7 +391,9 @@ all_relative_workspace() {
 external_relative_workspace() {
     direction="$1"
 
-    set -- $(relative_workspace_range)
+    # CTRL+SUPER navigation is confined to the workspace bank belonging to
+    # the currently focused monitor, even when only one monitor is connected.
+    set -- $(range_for_bank "$(focused_monitor_bank)")
     select_relative_workspace "$(workspace_range "$1" "$2")" "$direction"
 }
 
