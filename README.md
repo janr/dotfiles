@@ -32,6 +32,9 @@ Super-key driven workflow where possible.
 - Sets Yaru cursor themes for both Hyprland and XWayland cursor variables.
 - Uses a 2x scale on the laptop panel (`eDP-1`) and places additional monitors
   above it with matching scale.
+- Lets the workspace watcher own lid-close policy so Thunderbolt displays can
+  finish attaching after a closed-lid dock wake; an undocked lid close still
+  suspends after a short hotplug grace period.
 - Enables focus-follow-mouse behavior.
 - Uses the Hyprland `master` layout with an Awesome-like master factor.
 - Defaults the portrait Samsung display to a top-master orientation so windows

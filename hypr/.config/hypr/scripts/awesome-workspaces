@@ -474,6 +474,17 @@ move_to_last_empty_workspace() {
     move_to_empty_workspace last
 }
 
+suspend_if_closed_and_undocked() {
+    # logind cannot reliably recognize a Thunderbolt dock before its displays
+    # finish enumerating. Give hotplug a chance to settle, then implement the
+    # undocked lid-close behavior that our logind inhibitor replaces.
+    sleep 5
+
+    if lid_closed && [ "$(external_monitor_count)" -eq 0 ]; then
+        systemctl suspend
+    fi
+}
+
 watch() {
     reconcile
     update_waybar
@@ -486,16 +497,44 @@ watch() {
         current_lid="$(lid_closed && echo closed || echo open)"
 
         if [ "$current_monitors" != "$previous_monitors" ] || [ "$current_lid" != "$previous_lid" ]; then
+            lid_just_closed=false
+            [ "$previous_lid" = open ] && [ "$current_lid" = closed ] && lid_just_closed=true
+
             sleep 0.25
             reconcile
             sleep 0.75
             reconcile
             activate_external_default_workspace
             update_waybar
+
+            if [ "$lid_just_closed" = true ]; then
+                suspend_if_closed_and_undocked
+                # A suspend/resume may have changed both the dock and lid state.
+                reconcile
+                update_waybar
+            fi
+
             previous_monitors="$(monitor_signature)"
             previous_lid="$(lid_closed && echo closed || echo open)"
         fi
     done
+}
+
+watch_with_lid_inhibitor() {
+    # Without a desktop environment, logind handles the lid itself. On this
+    # machine that races Thunderbolt enumeration after a closed-lid dock wake:
+    # logind suspends again before it recognizes the external displays. Keep
+    # ownership of lid policy in this watcher instead.
+    if command -v systemd-inhibit >/dev/null 2>&1; then
+        exec systemd-inhibit \
+            --what=handle-lid-switch \
+            --who=Hyprland \
+            --why="Allow closed-lid Thunderbolt docking" \
+            --mode=block \
+            "$0" watch-inhibited
+    fi
+
+    watch
 }
 
 restart_watch() {
@@ -510,7 +549,8 @@ restart_watch() {
 case "$1" in
     reconcile) reconcile ;;
     update-waybar) update_waybar ;;
-    watch) watch ;;
+    watch) watch_with_lid_inhibitor ;;
+    watch-inhibited) watch ;;
     restart-watch) restart_watch ;;
     switch) switch_key "$2" ;;
     move) move_key "$2" ;;
