@@ -119,6 +119,22 @@ external_monitor_count() {
     '
 }
 
+dock_connected() {
+    # A USB4/Thunderbolt dock is visible before its DisplayPort tunnels and MST
+    # outputs finish enumerating. Skip the built-in root routers (0-0, 1-0,
+    # etc.); they remain authorized even when nothing is plugged in.
+    for device in /sys/bus/thunderbolt/devices/*; do
+        case "${device##*/}" in
+            *-0) continue ;;
+        esac
+        [ -r "$device/device_name" ] || continue
+        [ -r "$device/authorized" ] || continue
+        grep -qx '1' "$device/authorized" && return 0
+    done
+
+    return 1
+}
+
 apply_lid_monitor_state() {
     # When docked with the lid closed, remove the laptop panel so the first
     # external receives workspaces 1-9. Re-enable it when the lid opens, or if
@@ -135,6 +151,53 @@ monitor_signature() {
         /^Monitor / { signature = signature $2 "\n" }
         END { printf "%s", signature }
     '
+}
+
+display_signature() {
+    printf '%s\n' "$(monitor_signature)" "lid:$(lid_closed && echo closed || echo open)"
+}
+
+settle_displays_and_refresh() {
+    # Thunderbolt/MST outputs can arrive one at a time. Wait for the set to
+    # settle before regenerating Waybar, and verify that it did not change
+    # while Waybar was being regenerated. Otherwise the final output can land
+    # in the small window between update-waybar's snapshot and ours and never
+    # trigger another refresh.
+    refresh_attempt=1
+    while [ "$refresh_attempt" -le 3 ]; do
+        previous=""
+        stable_samples=0
+        sample=1
+
+        while [ "$sample" -le 20 ] && [ "$stable_samples" -lt 2 ]; do
+            current="$(display_signature)"
+            if [ "$current" = "$previous" ]; then
+                stable_samples=$((stable_samples + 1))
+            else
+                stable_samples=0
+                previous="$current"
+                reconcile
+            fi
+
+            sample=$((sample + 1))
+            sleep 0.5
+        done
+
+        reconcile
+        activate_external_default_workspace
+        before_update="$(display_signature)"
+        update_waybar
+        after_update="$(display_signature)"
+        [ "$before_update" = "$after_update" ] && return 0
+
+        refresh_attempt=$((refresh_attempt + 1))
+    done
+
+    # Always leave the generated bar config matching the latest snapshot, even
+    # if a dock continued flapping for the full settling period.
+    reconcile
+    activate_external_default_workspace
+    update_waybar
 }
 
 active_workspace_id() {
@@ -476,11 +539,18 @@ move_to_last_empty_workspace() {
 
 suspend_if_closed_and_undocked() {
     # logind cannot reliably recognize a Thunderbolt dock before its displays
-    # finish enumerating. Give hotplug a chance to settle, then implement the
-    # undocked lid-close behavior that our logind inhibitor replaces.
-    sleep 5
+    # finish enumerating. A dock may appear several seconds before either of
+    # its MST outputs, so treat the authorized dock itself as sufficient.
+    attempt=1
+    while [ "$attempt" -le 20 ]; do
+        lid_closed || return 0
+        [ "$(external_monitor_count)" -gt 0 ] && return 0
+        dock_connected && return 0
+        sleep 0.5
+        attempt=$((attempt + 1))
+    done
 
-    if lid_closed && [ "$(external_monitor_count)" -eq 0 ]; then
+    if lid_closed && [ "$(external_monitor_count)" -eq 0 ] && ! dock_connected; then
         systemctl suspend
     fi
 }
@@ -500,12 +570,7 @@ watch() {
             lid_just_closed=false
             [ "$previous_lid" = open ] && [ "$current_lid" = closed ] && lid_just_closed=true
 
-            sleep 0.25
-            reconcile
-            sleep 0.75
-            reconcile
-            activate_external_default_workspace
-            update_waybar
+            settle_displays_and_refresh
 
             if [ "$lid_just_closed" = true ]; then
                 suspend_if_closed_and_undocked

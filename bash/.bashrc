@@ -27,3 +27,4 @@ done
 
 # Untracked, machine-specific config.
 [ -r "$BASH_CONFIG_HOME/local" ] && . "$BASH_CONFIG_HOME/local"
+. "/home/jan/.deno/env"
