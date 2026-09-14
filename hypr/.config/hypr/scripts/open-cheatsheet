@@ -20,7 +20,22 @@ main_monitor() {
 main="$(main_monitor)"
 
 if [ -n "$main" ] && [ "$main" != "null" ]; then
-    hyprctl dispatch focusmonitor "$main" >/dev/null 2>&1 || true
+    if [ "${HYPR_WORKSPACE_API:-legacy}" = lua ]; then
+        hyprctl dispatch "hl.dsp.focus({ monitor = \"$main\" })" >/dev/null 2>&1 || true
+    else
+        hyprctl dispatch focusmonitor "$main" >/dev/null 2>&1 || true
+    fi
 fi
 
-google-chrome --app="file://$file" >/dev/null 2>&1 &
+if command -v zen-browser >/dev/null 2>&1; then
+    browser=zen-browser
+elif command -v zen >/dev/null 2>&1; then
+    browser=zen
+elif command -v google-chrome >/dev/null 2>&1; then
+    browser=google-chrome
+else
+    echo "No supported browser found (tried zen-browser, zen, and google-chrome)." >&2
+    exit 1
+fi
+
+"$browser" --new-window "file://$file" >/dev/null 2>&1 &

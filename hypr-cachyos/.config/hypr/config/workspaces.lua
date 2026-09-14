@@ -28,3 +28,14 @@ for bank, monitor in ipairs(monitors) do
         })
     end
 end
+
+for _, title in ipairs({ "Hyprland Cheatsheet", "Neovim Cheatsheet", "Pi Cheatsheet" }) do
+    hl.window_rule({
+        name = "cheatsheet-" .. title,
+        match = { title = ".*" .. title .. ".*" },
+        float = true,
+        center = true,
+        size = { 1200, 720 },
+        pin = true,
+    })
+end
