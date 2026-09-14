@@ -1,12 +1,22 @@
 #!/bin/sh
 
 laptop=eDP-1
+laptop_scale="${HYPR_LAPTOP_SCALE:-2}"
+laptop_position="${HYPR_LAPTOP_POSITION:-0x0}"
+
+# The Ubuntu profile uses Waybar.  CachyOS's Hyprland profile uses Noctalia for
+# its panel and widgets, so it sets this to "none" before starting us.
+workspace_bar_enabled() {
+    [ "${HYPR_WORKSPACE_BAR:-waybar}" = "waybar" ]
+}
 
 refresh_waybar_workspaces() {
+    workspace_bar_enabled || return 0
     pkill -RTMIN+8 waybar >/dev/null 2>&1 || true
 }
 
 update_waybar() {
+    workspace_bar_enabled || return 0
     if [ -x "$HOME/.config/hypr/scripts/update-waybar" ]; then
         "$HOME/.config/hypr/scripts/update-waybar" >/dev/null 2>&1 || true
     else
@@ -142,7 +152,7 @@ apply_lid_monitor_state() {
     if lid_closed && [ "$(external_monitor_count)" -gt 0 ]; then
         hyprctl keyword monitor "$laptop,disable" >/dev/null 2>&1 || true
     else
-        hyprctl keyword monitor "$laptop,preferred,0x0,2" >/dev/null 2>&1 || true
+        hyprctl keyword monitor "$laptop,preferred,$laptop_position,$laptop_scale" >/dev/null 2>&1 || true
     fi
 }
 

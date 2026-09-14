@@ -15,6 +15,7 @@ Current packages:
 - `nvim`
 - `share`
 - `waybar`
+- `hypr-cachyos` (CachyOS's Lua-based Hyprland overlay)
 
 For example, `hypr/.config/hypr/hyprland.conf` is linked to
 `~/.config/hypr/hyprland.conf`.
@@ -101,11 +102,37 @@ The Waybar config is a compact top bar designed for the Hyprland workspace setup
 
 ## Install
 
-Create the symlinks:
+On Ubuntu, install the shared files, the original Hyprland profile, and
+Waybar:
 
 ```sh
-make install
+make install-ubuntu
 ```
+
+On CachyOS, install the shared files, the custom scripts, and the CachyOS
+overlay instead:
+
+```sh
+make install-cachyos
+```
+
+The CachyOS overlay deliberately leaves Noctalia in charge of the panel. Its
+widgets and their defaults therefore remain intact. It replaces CachyOS's
+`config/{autostart,binds,monitors,variables,workspaces}.lua`; preserve the
+distribution versions before the first install:
+
+```sh
+mkdir -p ~/.config/hypr/config/cachyos-default
+mv ~/.config/hypr/config/{autostart,binds,monitors,variables,workspaces}.lua \
+  ~/.config/hypr/config/cachyos-default/
+make install-cachyos
+```
+
+The laptop panel is 1920x1200 and runs at its native 1.5x scale, giving it a
+1280x800 logical size. The CachyOS monitor profile places it at `640x1440`:
+directly below the 1920x1080 logical Acer display and immediately left of the
+portrait Samsung. The workspace watcher preserves that placement after lid
+changes.
 
 Preview what Stow would do without changing files:
 
@@ -127,11 +154,11 @@ This repository is in `~/src/dotfiles`, so the Stow target must be your home
 directory:
 
 ```sh
-stow -t ~ bin hypr kitty nvim share waybar
+stow -t ~ bash bin hypr kitty nvim share waybar
 ```
 
 Remove links manually:
 
 ```sh
-stow -D -t ~ bin hypr kitty nvim share waybar
+stow -D -t ~ bash bin hypr kitty nvim share waybar
 ```

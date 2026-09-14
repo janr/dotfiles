@@ -1,0 +1,2 @@
+-- awesome-workspaces owns persistent workspace assignment. Keeping the rules
+-- here empty prevents CachyOS's starter 1-3 rules from fighting it.
