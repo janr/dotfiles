@@ -102,6 +102,16 @@ The Waybar config is a compact top bar designed for the Hyprland workspace setup
 
 ## Install
 
+GNU Stow is required. Install it before running any Make target:
+
+```sh
+# Ubuntu
+sudo apt install stow
+
+# CachyOS / Arch
+sudo pacman -S --needed stow
+```
+
 On Ubuntu, install the shared files, the original Hyprland profile, and
 Waybar:
 
