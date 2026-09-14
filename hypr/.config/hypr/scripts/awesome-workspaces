@@ -330,7 +330,13 @@ move_workspace_windows() {
     hyprctl clients -j | jq -r --argjson from "$from" '
         .[] | select(.workspace.id == $from) | .address
     ' | while read -r address; do
-        [ -n "$address" ] && hyprctl dispatch movetoworkspacesilent "$to,address:$address" >/dev/null
+        [ -n "$address" ] || continue
+
+        if [ "$workspace_api" = lua ]; then
+            hyprctl dispatch "hl.dsp.window.move({ workspace = \"$to\", follow = false, window = \"address:$address\" })" >/dev/null
+        else
+            hyprctl dispatch movetoworkspacesilent "$to,address:$address" >/dev/null
+        fi
     done
 }
 
