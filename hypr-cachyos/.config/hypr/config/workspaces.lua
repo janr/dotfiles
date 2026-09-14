@@ -13,6 +13,10 @@ hl.config({
 })
 
 for bank, monitor in ipairs(monitors) do
+    -- Landscape displays use a left/right master split. On the portrait
+    -- Samsung, stack the master and slave areas top-to-bottom instead.
+    local orientation = bank == 3 and "top" or "left"
+
     for key = 1, 9 do
         local workspace = (bank - 1) * 9 + key
         hl.workspace_rule({
@@ -20,6 +24,7 @@ for bank, monitor in ipairs(monitors) do
             monitor = monitor,
             persistent = true,
             default = key == 1,
+            layout_opts = { orientation = orientation },
         })
     end
 end
