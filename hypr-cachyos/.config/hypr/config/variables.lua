@@ -2,7 +2,8 @@
 -- The panel itself stays managed by Noctalia.
 TERMINAL = "kitty"
 FILE_MANAGER = "dolphin"
-BROWSER = "zen"
+-- UWSM does not inherit the shell PATH that contains ~/.local/bin/zen.
+BROWSER = "zen-browser"
 EDITOR = "nvim"
 CALCULATOR = "gnome-calculator"
 
