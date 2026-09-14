@@ -20,7 +20,24 @@ main_monitor() {
 main="$(main_monitor)"
 
 if [ -n "$main" ] && [ "$main" != "null" ]; then
-    hyprctl dispatch focusmonitor "$main" >/dev/null 2>&1 || true
+    if [ "${HYPR_WORKSPACE_API:-legacy}" = lua ]; then
+        hyprctl dispatch "hl.dsp.focus({ monitor = \"$main\" })" >/dev/null 2>&1 || true
+    else
+        hyprctl dispatch focusmonitor "$main" >/dev/null 2>&1 || true
+    fi
 fi
 
-google-chrome --app="file://$file" >/dev/null 2>&1 &
+if command -v chromium >/dev/null 2>&1; then
+    # Chromium's app mode has no tabs, address bar, or Zen browser chrome.
+    chromium --app="file://$file" >/dev/null 2>&1 &
+    exit 0
+fi
+
+viewer="$HOME/.local/bin/cheatsheet-viewer"
+if [ -x "$viewer" ]; then
+    "$viewer" "$file" >/dev/null 2>&1 &
+    exit 0
+fi
+
+echo "Install Chromium for app-mode cheatsheets: sudo pacman -S chromium" >&2
+exit 1

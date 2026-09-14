@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+"""Display a local HTML cheatsheet in a simple native GTK window."""
+
+import re
+import sys
+from html.parser import HTMLParser
+from pathlib import Path
+
+import gi
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, Pango
+
+
+class TextExtractor(HTMLParser):
+    BLOCK_TAGS = {"article", "div", "h1", "h2", "h3", "h4", "li", "p", "pre", "section", "tr"}
+
+    def __init__(self):
+        super().__init__()
+        self.parts = []
+        self.ignored_depth = 0
+        self.title = "Cheatsheet"
+        self.in_title = False
+
+    def handle_starttag(self, tag, attrs):
+        if tag in {"script", "style"}:
+            self.ignored_depth += 1
+        if tag == "title":
+            self.in_title = True
+        if not self.ignored_depth and tag in self.BLOCK_TAGS:
+            self.parts.append("\n")
+        if not self.ignored_depth and tag == "li":
+            self.parts.append("• ")
+        if not self.ignored_depth and tag in {"br", "hr"}:
+            self.parts.append("\n")
+        if not self.ignored_depth and tag in {"td", "th"}:
+            self.parts.append("  ")
+
+    def handle_endtag(self, tag):
+        if tag in {"script", "style"} and self.ignored_depth:
+            self.ignored_depth -= 1
+        if tag == "title":
+            self.in_title = False
+
+    def handle_data(self, data):
+        if self.ignored_depth:
+            return
+        if self.in_title:
+            self.title = data.strip() or self.title
+        self.parts.append(data)
+
+    def text(self):
+        text = "".join(self.parts)
+        text = re.sub(r"[ \t]+\n", "\n", text)
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        return text.strip() + "\n"
+
+
+def main():
+    if len(sys.argv) != 2:
+        raise SystemExit(f"usage: {Path(sys.argv[0]).name} FILE.html")
+
+    path = Path(sys.argv[1]).expanduser()
+    if not path.is_file():
+        raise SystemExit(f"cheatsheet not found: {path}")
+
+    parser = TextExtractor()
+    parser.feed(path.read_text(encoding="utf-8"))
+
+    window = Gtk.Window(title=parser.title)
+    window.set_default_size(1200, 720)
+    window.set_border_width(14)
+    window.connect("destroy", Gtk.main_quit)
+
+    scroll = Gtk.ScrolledWindow()
+    scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+    view = Gtk.TextView()
+    view.set_editable(False)
+    view.set_cursor_visible(False)
+    view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+    view.modify_font(Pango.FontDescription("JetBrains Mono 12"))
+    view.get_buffer().set_text(parser.text())
+    scroll.add(view)
+    window.add(scroll)
+    window.show_all()
+    Gtk.main()
+
+
+if __name__ == "__main__":
+    main()

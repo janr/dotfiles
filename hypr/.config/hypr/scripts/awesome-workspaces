@@ -1,16 +1,47 @@
 #!/bin/sh
 
 laptop=eDP-1
+laptop_scale="${HYPR_LAPTOP_SCALE:-2}"
+laptop_position="${HYPR_LAPTOP_POSITION:-0x0}"
+workspace_api="${HYPR_WORKSPACE_API:-legacy}"
+
+# The Ubuntu profile uses Waybar.  CachyOS's Hyprland profile uses Noctalia for
+# its panel and widgets, so it sets this to "none" before starting us.
+workspace_bar_enabled() {
+    [ "${HYPR_WORKSPACE_BAR:-waybar}" = "waybar" ]
+}
 
 refresh_waybar_workspaces() {
+    workspace_bar_enabled || return 0
     pkill -RTMIN+8 waybar >/dev/null 2>&1 || true
 }
 
 update_waybar() {
+    workspace_bar_enabled || return 0
     if [ -x "$HOME/.config/hypr/scripts/update-waybar" ]; then
         "$HOME/.config/hypr/scripts/update-waybar" >/dev/null 2>&1 || true
     else
         refresh_waybar_workspaces
+    fi
+}
+
+focus_workspace() {
+    workspace="$1"
+
+    if [ "$workspace_api" = lua ]; then
+        hyprctl dispatch "hl.dsp.focus({ workspace = \"$workspace\" })"
+    else
+        hyprctl dispatch workspace "$workspace"
+    fi
+}
+
+move_active_to_workspace() {
+    workspace="$1"
+
+    if [ "$workspace_api" = lua ]; then
+        hyprctl dispatch "hl.dsp.window.move({ workspace = \"$workspace\" })"
+    else
+        hyprctl dispatch movetoworkspace "$workspace"
     fi
 }
 
@@ -142,7 +173,7 @@ apply_lid_monitor_state() {
     if lid_closed && [ "$(external_monitor_count)" -gt 0 ]; then
         hyprctl keyword monitor "$laptop,disable" >/dev/null 2>&1 || true
     else
-        hyprctl keyword monitor "$laptop,preferred,0x0,2" >/dev/null 2>&1 || true
+        hyprctl keyword monitor "$laptop,preferred,$laptop_position,$laptop_scale" >/dev/null 2>&1 || true
     fi
 }
 
@@ -299,7 +330,13 @@ move_workspace_windows() {
     hyprctl clients -j | jq -r --argjson from "$from" '
         .[] | select(.workspace.id == $from) | .address
     ' | while read -r address; do
-        [ -n "$address" ] && hyprctl dispatch movetoworkspacesilent "$to,address:$address" >/dev/null
+        [ -n "$address" ] || continue
+
+        if [ "$workspace_api" = lua ]; then
+            hyprctl dispatch "hl.dsp.window.move({ workspace = \"$to\", follow = false, window = \"address:$address\" })" >/dev/null
+        else
+            hyprctl dispatch movetoworkspacesilent "$to,address:$address" >/dev/null
+        fi
     done
 }
 
@@ -333,6 +370,11 @@ swap_current_bank_with_main() {
 }
 
 reconcile() {
+    # CachyOS uses Hyprland's Lua control API. Its persistent workspace rules
+    # are declared in config/workspaces.lua, so do not feed its removed
+    # hyprlang `keyword workspace` interface from this compatibility script.
+    [ "$workspace_api" = lua ] && return 0
+
     apply_lid_monitor_state
 
     primary="$(primary_monitor)"
@@ -386,12 +428,12 @@ activate_external_default_workspace() {
 }
 
 switch_key() {
-    hyprctl dispatch workspace "$(workspace_for_key "$1")"
+    focus_workspace "$(workspace_for_key "$1")"
     refresh_waybar_workspaces
 }
 
 move_key() {
-    hyprctl dispatch movetoworkspace "$(workspace_for_key "$1")"
+    move_active_to_workspace "$(workspace_for_key "$1")"
     refresh_waybar_workspaces
 }
 
@@ -435,7 +477,7 @@ select_relative_workspace() {
     esac
 
     if [ -n "$next" ]; then
-        hyprctl dispatch workspace "$next"
+        focus_workspace "$next"
         refresh_waybar_workspaces
     fi
 }
@@ -510,14 +552,14 @@ empty_workspace() {
 switch_empty_workspace() {
     workspace="$(empty_workspace "$1")" || exit 0
 
-    hyprctl dispatch workspace "$workspace"
+    focus_workspace "$workspace"
     refresh_waybar_workspaces
 }
 
 move_to_empty_workspace() {
     workspace="$(empty_workspace "$1")" || exit 0
 
-    hyprctl dispatch movetoworkspace "$workspace"
+    move_active_to_workspace "$workspace"
     refresh_waybar_workspaces
 }
 
