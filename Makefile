@@ -1,8 +1,8 @@
 COMMON_PACKAGES := bash bin kitty nvim share
 UBUNTU_PACKAGES := $(COMMON_PACKAGES) hypr waybar
-# CachyOS supplies its own shell and Kitty defaults. Keep those in place while
-# the Hyprland overlay adds the shared scripts, shortcuts, and monitor layout.
-CACHYOS_PACKAGES := bin nvim share hypr hypr-cachyos
+# CachyOS supplies its own Zsh/Fish defaults. Manage the Bash login shell,
+# Kitty, Noctalia, and the Hyprland overlay here.
+CACHYOS_PACKAGES := bash bin kitty nvim share hypr hypr-cachyos noctalia
 OS_ID := $(shell . /etc/os-release 2>/dev/null && printf '%s' "$$ID")
 
 ifeq ($(OS_ID),cachyos)

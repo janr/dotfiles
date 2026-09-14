@@ -21,10 +21,10 @@ for file in \
   "$BASH_CONFIG_HOME/prompt" \
   "$BASH_CONFIG_HOME/aliases" \
   "$BASH_CONFIG_HOME/functions" \
-  "$BASH_CONFIG_HOME/completion"; do
+  "$BASH_CONFIG_HOME/completion" \
+  "$BASH_CONFIG_HOME/nvm"; do
   [ -r "$file" ] && . "$file"
 done
 
 # Untracked, machine-specific config.
 [ -r "$BASH_CONFIG_HOME/local" ] && . "$BASH_CONFIG_HOME/local"
-. "/home/jan/.deno/env"

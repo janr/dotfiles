@@ -5,6 +5,14 @@ laptop_scale="${HYPR_LAPTOP_SCALE:-2}"
 laptop_position="${HYPR_LAPTOP_POSITION:-0x0}"
 workspace_api="${HYPR_WORKSPACE_API:-legacy}"
 
+# Hyprland's CachyOS profile uses the Lua dispatcher API. The session startup
+# exports HYPR_WORKSPACE_API, but retain the right behavior when this helper is
+# invoked manually from a terminal that did not inherit that environment.
+if [ -z "${HYPR_WORKSPACE_API:-}" ] && [ -r /etc/os-release ]; then
+    . /etc/os-release
+    [ "${ID:-}" = cachyos ] && workspace_api=lua
+fi
+
 # The Ubuntu profile uses Waybar.  CachyOS's Hyprland profile uses Noctalia for
 # its panel and widgets, so it sets this to "none" before starting us.
 workspace_bar_enabled() {
@@ -369,11 +377,37 @@ swap_current_bank_with_main() {
     update_waybar
 }
 
+set_workspace_display_name() {
+    workspace="$1"
+    label="$2"
+
+    # Keep unique numeric workspace IDs for Hyprland rules and bindings, but
+    # expose Awesome-style 1-9 labels on every monitor bank to panels.
+    if [ "$workspace_api" = lua ]; then
+        hyprctl dispatch "hl.dsp.workspace.rename({ workspace = \"$workspace\", name = \"$label\" })" >/dev/null 2>&1 || true
+    else
+        hyprctl dispatch renameworkspace "$workspace $label" >/dev/null 2>&1 || true
+    fi
+}
+
+sync_workspace_display_names() {
+    workspace=1
+
+    while [ "$workspace" -le 27 ]; do
+        label=$(( (workspace - 1) % 9 + 1 ))
+        set_workspace_display_name "$workspace" "$label"
+        workspace=$((workspace + 1))
+    done
+}
+
 reconcile() {
     # CachyOS uses Hyprland's Lua control API. Its persistent workspace rules
     # are declared in config/workspaces.lua, so do not feed its removed
     # hyprlang `keyword workspace` interface from this compatibility script.
-    [ "$workspace_api" = lua ] && return 0
+    if [ "$workspace_api" = lua ]; then
+        sync_workspace_display_names
+        return 0
+    fi
 
     apply_lid_monitor_state
 
@@ -411,6 +445,8 @@ reconcile() {
 
         bank=$((bank + 1))
     done
+
+    sync_workspace_display_names
 }
 
 activate_external_default_workspace() {

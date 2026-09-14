@@ -32,23 +32,6 @@ act() {
   source "$VENV_PATH/bin/activate" || return 1
   unset VIRTUAL_ENV_DISABLE_PROMPT
 
-  export _ACT_OLD_PS1="${PS1:-}"
-  PS1="($DIR_NAME) ${PS1:-}"
-
-  eval "$(declare -f deactivate | sed '1s/deactivate/_act_real_deactivate/')"
-
-  deactivate() {
-    _act_real_deactivate "$@"
-
-    if [ -n "${_ACT_OLD_PS1+x}" ]; then
-      PS1="$_ACT_OLD_PS1"
-      unset _ACT_OLD_PS1
-    fi
-
-    unset -f _act_real_deactivate
-    unset -f deactivate
-  }
-
   echo "Environment active: $(python --version) at $VENV_PATH"
 }
 

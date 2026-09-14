@@ -16,6 +16,7 @@ Current packages:
 - `share`
 - `waybar`
 - `hypr-cachyos` (CachyOS's Lua-based Hyprland overlay)
+- `noctalia` (CachyOS's panel and desktop-shell preferences)
 
 For example, `hypr/.config/hypr/hyprland.conf` is linked to
 `~/.config/hypr/hyprland.conf`.
@@ -119,8 +120,9 @@ Waybar:
 make install-ubuntu
 ```
 
-On CachyOS, install the shared files, the custom scripts, and the CachyOS
-overlay instead:
+On CachyOS, install the Bash login-shell configuration, Kitty, Noctalia, shared
+files, custom scripts, and the CachyOS overlay instead. CachyOS's Zsh/Fish
+defaults remain unmanaged:
 
 ```sh
 make install-cachyos
@@ -130,8 +132,8 @@ make install-cachyos
 automatically on CachyOS. Use `make dry-run-cachyos` or
 `make dry-run-ubuntu` to preview a specific profile explicitly.
 
-The CachyOS overlay deliberately leaves Noctalia in charge of the panel. Its
-widgets and their defaults therefore remain intact. It replaces CachyOS's
+The CachyOS overlay deliberately leaves Noctalia in charge of the panel, while
+the `noctalia` package tracks its preferences. It replaces CachyOS's
 `config/{autostart,binds,monitors,variables,workspaces}.lua`; preserve the
 distribution versions before the first install:
 
