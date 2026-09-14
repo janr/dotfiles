@@ -60,20 +60,20 @@ hl.bind(mod .. " + Up", command(workspace .. "first-empty"))
 hl.bind(mod .. " + Down", command(workspace .. "last-empty"))
 hl.bind(mod .. " + CONTROL + Left", command(workspace .. "external-prev"))
 hl.bind(mod .. " + CONTROL + Right", command(workspace .. "external-next"))
-hl.bind(mod .. " + Escape", command("hyprctl dispatch workspace previous"))
-hl.bind(mod .. " + SHIFT + Left", command("hyprctl dispatch movetoworkspace r-1"))
-hl.bind(mod .. " + SHIFT + Right", command("hyprctl dispatch movetoworkspace r+1"))
+hl.bind(mod .. " + Escape", hl.dsp.focus({ workspace = "previous" }))
+hl.bind(mod .. " + SHIFT + Left", hl.dsp.window.move({ workspace = "r-1" }))
+hl.bind(mod .. " + SHIFT + Right", hl.dsp.window.move({ workspace = "r+1" }))
 hl.bind(mod .. " + SHIFT + Up", command(workspace .. "move-first-empty"))
 hl.bind(mod .. " + SHIFT + Down", command(workspace .. "move-last-empty"))
-hl.bind(mod .. " + CONTROL + J", command("hyprctl dispatch focusmonitor +1"))
-hl.bind(mod .. " + CONTROL + K", command("hyprctl dispatch focusmonitor -1"))
+hl.bind(mod .. " + CONTROL + J", hl.dsp.focus({ monitor = "+1" }))
+hl.bind(mod .. " + CONTROL + K", hl.dsp.focus({ monitor = "-1" }))
 hl.bind(mod .. " + CONTROL + O", command(workspace .. "swap-main"))
 
 for i = 1, 9 do
     hl.bind(mod .. " + " .. i, command(workspace .. "switch " .. i))
     hl.bind(mod .. " + SHIFT + " .. i, command(workspace .. "move " .. i))
-    hl.bind(mod .. " + CONTROL + " .. i, command("hyprctl dispatch workspace " .. (i + 9)))
-    hl.bind(mod .. " + CONTROL + SHIFT + " .. i, command("hyprctl dispatch movetoworkspace " .. (i + 9)))
+    hl.bind(mod .. " + CONTROL + " .. i, hl.dsp.focus({ workspace = tostring(i + 9) }))
+    hl.bind(mod .. " + CONTROL + SHIFT + " .. i, hl.dsp.window.move({ workspace = tostring(i + 9) }))
 end
 
 -- Hardware, screen capture, and local reference sheets.

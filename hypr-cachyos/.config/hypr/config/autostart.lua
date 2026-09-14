@@ -3,6 +3,7 @@
 hl.env("HYPR_WORKSPACE_BAR", "none")
 hl.env("HYPR_LAPTOP_SCALE", "1.5")
 hl.env("HYPR_LAPTOP_POSITION", "640x1440")
+hl.env("HYPR_WORKSPACE_API", "lua")
 
 hl.on("hyprland.start", function()
     hl.exec_cmd("dbus-update-activation-environment --systemd --all")
