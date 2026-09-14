@@ -1,17 +1,25 @@
 COMMON_PACKAGES := bash bin kitty nvim share
 UBUNTU_PACKAGES := $(COMMON_PACKAGES) hypr waybar
-CACHYOS_PACKAGES := $(COMMON_PACKAGES) hypr hypr-cachyos
+# CachyOS supplies its own shell and Kitty defaults. Keep those in place while
+# the Hyprland overlay adds the shared scripts, shortcuts, and monitor layout.
+CACHYOS_PACKAGES := bin nvim share hypr hypr-cachyos
+OS_ID := $(shell . /etc/os-release 2>/dev/null && printf '%s' "$$ID")
+
+ifeq ($(OS_ID),cachyos)
+PACKAGES := $(CACHYOS_PACKAGES)
+else
 PACKAGES := $(UBUNTU_PACKAGES)
+endif
 TARGET := $(HOME)
 STOW := stow
 
-.PHONY: install install-ubuntu install-cachyos remove remove-cachyos dry-run restow
+.PHONY: install install-ubuntu install-cachyos remove remove-cachyos dry-run dry-run-ubuntu dry-run-cachyos restow
 
 install:
-	$(MAKE) install-ubuntu
+	$(STOW) -t $(TARGET) $(PACKAGES)
 
 install-ubuntu:
-	$(STOW) -t $(TARGET) $(PACKAGES)
+	$(STOW) -t $(TARGET) $(UBUNTU_PACKAGES)
 
 install-cachyos:
 	$(STOW) -t $(TARGET) $(CACHYOS_PACKAGES)
@@ -24,6 +32,12 @@ remove-cachyos:
 
 dry-run:
 	$(STOW) -n -v -t $(TARGET) $(PACKAGES)
+
+dry-run-ubuntu:
+	$(STOW) -n -v -t $(TARGET) $(UBUNTU_PACKAGES)
+
+dry-run-cachyos:
+	$(STOW) -n -v -t $(TARGET) $(CACHYOS_PACKAGES)
 
 restow:
 	$(STOW) -R -t $(TARGET) $(PACKAGES)

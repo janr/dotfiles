@@ -126,6 +126,10 @@ overlay instead:
 make install-cachyos
 ```
 
+`make install`, `make dry-run`, and `make restow` select the CachyOS profile
+automatically on CachyOS. Use `make dry-run-cachyos` or
+`make dry-run-ubuntu` to preview a specific profile explicitly.
+
 The CachyOS overlay deliberately leaves Noctalia in charge of the panel. Its
 widgets and their defaults therefore remain intact. It replaces CachyOS's
 `config/{autostart,binds,monitors,variables,workspaces}.lua`; preserve the
