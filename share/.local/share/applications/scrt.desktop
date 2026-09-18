@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Take Screenshot
+Comment=Select an area and copy it to the clipboard
+Exec=/home/janr/.local/bin/scrt
+Icon=camera-photo
+Terminal=false
+Categories=Utility;
+Keywords=screenshot;scrt;capture;
