@@ -1,0 +1,199 @@
+#!/bin/bash
+
+# Record the Scarlett through PipeWire while collecting enough state to
+# distinguish capture failures from browser/WebRTC or network failures.
+
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage: audio-check [SECONDS] [OUTPUT_DIR]
+
+Record the Focusrite/Scarlett microphone and collect PipeWire and kernel logs.
+Keep this running while reproducing the problem in Google Meet.
+
+Defaults:
+  SECONDS     300
+  OUTPUT_DIR  /tmp/audio-check-YYYYMMDD-HHMMSS
+EOF
+}
+
+case "${1:-}" in
+    -h|--help)
+        usage
+        exit 0
+        ;;
+esac
+
+duration="${1:-300}"
+if ! [[ "$duration" =~ ^[1-9][0-9]*$ ]]; then
+    echo "Error: SECONDS must be a positive integer." >&2
+    exit 2
+fi
+
+output_dir="${2:-/tmp/audio-check-$(date +%Y%m%d-%H%M%S)}"
+mkdir -p "$output_dir"
+
+for command_name in journalctl pactl pw-metadata pw-record pw-top rg; do
+    if ! command -v "$command_name" >/dev/null 2>&1; then
+        echo "Error: '$command_name' is required." >&2
+        exit 1
+    fi
+done
+
+default_source="$(pactl get-default-source 2>/dev/null || true)"
+if [[ "${default_source,,}" =~ (focusrite|scarlett) ]] \
+    && [[ "$default_source" != *.monitor ]]; then
+    source_name="$default_source"
+else
+    source_name="$({
+        pactl list short sources \
+            | awk 'tolower($2) ~ /(focusrite|scarlett)/ && $2 !~ /\.monitor$/ { print $2; exit }'
+    } || true)"
+fi
+
+if [ -z "$source_name" ]; then
+    echo "Error: no Focusrite/Scarlett capture source is currently available." >&2
+    echo "Available capture sources:" >&2
+    pactl list short sources | awk '$2 !~ /\.monitor$/ { print "  " $2 }' >&2
+    echo "Reconnect the interface, confirm it appears in 'wpctl status', and retry." >&2
+    exit 1
+fi
+
+default_sink="$(pactl get-default-sink)"
+monitor_name="$({
+    pactl list short sources \
+        | awk -v monitor="${default_sink}.monitor" '$2 == monitor { print $2; exit }'
+} || true)"
+
+rate="$({
+    pw-metadata -n settings 0 2>/dev/null \
+        | awk -F"'" '/clock\.rate/ { print $4; exit }'
+} || true)"
+if ! [[ "$rate" =~ ^[0-9]+$ ]]; then
+    rate=48000
+fi
+
+start_epoch="$(date +%s)"
+capture_file="$output_dir/capture.wav"
+capture_log="$output_dir/capture.log"
+received_file="$output_dir/received.wav"
+received_log="$output_dir/received.log"
+top_log="$output_dir/pw-top.log"
+
+{
+    printf 'started=%s\n' "$(date --iso-8601=seconds)"
+    printf 'duration_seconds=%s\n' "$duration"
+    printf 'source=%s\n' "$source_name"
+    printf 'sink_monitor=%s\n' "${monitor_name:-unavailable}"
+    printf 'graph_rate=%s\n' "$rate"
+    printf 'kernel=%s\n' "$(uname -srvo)"
+} > "$output_dir/run.txt"
+
+wpctl status > "$output_dir/wpctl-before.txt"
+pactl info > "$output_dir/pactl-info.txt"
+pactl list sources > "$output_dir/sources-before.txt"
+pw-metadata -n settings 0 > "$output_dir/pipewire-settings.txt" 2>&1 || true
+cat /proc/asound/cards > "$output_dir/alsa-cards-before.txt"
+lsusb -t > "$output_dir/usb-tree-before.txt" 2>&1 || true
+
+capture_pid=""
+received_pid=""
+top_pid=""
+
+cleanup() {
+    trap - EXIT INT TERM
+    if [ -n "$capture_pid" ]; then
+        kill -INT "$capture_pid" 2>/dev/null || true
+        wait "$capture_pid" 2>/dev/null || true
+    fi
+    if [ -n "$received_pid" ]; then
+        kill -INT "$received_pid" 2>/dev/null || true
+        wait "$received_pid" 2>/dev/null || true
+    fi
+    if [ -n "$top_pid" ]; then
+        kill "$top_pid" 2>/dev/null || true
+        wait "$top_pid" 2>/dev/null || true
+    fi
+}
+trap cleanup EXIT INT TERM
+
+pw-top --batch-mode --iterations "$((duration + 2))" > "$top_log" 2>&1 &
+top_pid="$!"
+
+pw-record \
+    --target "$source_name" \
+    --rate "$rate" \
+    --channels 1 \
+    --channel-map MONO \
+    --format s24 \
+    --latency 100ms \
+    "$capture_file" > "$capture_log" 2>&1 &
+capture_pid="$!"
+
+if [ -n "$monitor_name" ]; then
+    pw-record \
+        --target "$monitor_name" \
+        --rate "$rate" \
+        --channels 1 \
+        --channel-map MONO \
+        --format s24 \
+        --latency 100ms \
+        "$received_file" > "$received_log" 2>&1 &
+    received_pid="$!"
+fi
+
+echo "Recording Scarlett source for $duration seconds at ${rate} Hz."
+echo "Now reproduce the problem in Meet and speak continuously."
+if [ -n "$monitor_name" ]; then
+    echo "System output is also being recorded for a second Meet client: $received_file"
+fi
+echo "Press Ctrl-C to stop early. Output: $output_dir"
+
+end_time=$((SECONDS + duration))
+while [ "$SECONDS" -lt "$end_time" ]; do
+    if ! kill -0 "$capture_pid" 2>/dev/null; then
+        echo "Warning: capture stopped early; see $capture_log" >&2
+        break
+    fi
+    sleep 1
+done
+
+cleanup
+capture_pid=""
+received_pid=""
+top_pid=""
+
+journalctl -b -k --since "@$start_epoch" --no-pager -o short-iso \
+    > "$output_dir/kernel.log" 2>&1 || true
+journalctl --user -b --since "@$start_epoch" --no-pager -o short-iso \
+    -u pipewire -u pipewire-pulse -u wireplumber \
+    > "$output_dir/pipewire.log" 2>&1 || true
+wpctl status > "$output_dir/wpctl-after.txt" 2>&1 || true
+cat /proc/asound/cards > "$output_dir/alsa-cards-after.txt"
+
+error_pattern='xrun|underflow|overrun|disconnect|reset|protocol error|err -[0-9]+|no such device|start error|snd_pcm.*error'
+kernel_errors="$(rg -i -c "$error_pattern" "$output_dir/kernel.log" 2>/dev/null || true)"
+pipewire_errors="$(rg -i -c "$error_pattern" "$output_dir/pipewire.log" 2>/dev/null || true)"
+kernel_errors="${kernel_errors:-0}"
+pipewire_errors="${pipewire_errors:-0}"
+
+{
+    printf 'finished=%s\n' "$(date --iso-8601=seconds)"
+    printf 'kernel_error_lines=%s\n' "$kernel_errors"
+    printf 'pipewire_error_lines=%s\n' "$pipewire_errors"
+} >> "$output_dir/run.txt"
+
+echo
+echo "Capture complete: $capture_file"
+if [ -f "$received_file" ]; then
+    echo "Received audio:  $received_file"
+fi
+echo "Kernel error lines: $kernel_errors"
+echo "PipeWire error lines: $pipewire_errors"
+echo "Diagnostics: $output_dir"
+echo
+echo "Interpretation:"
+echo "  Local WAV drops too       -> interface / PipeWire / source signal path"
+echo "  capture.wav clean but received.wav drops -> browser processing or Meet/network"
+echo "  Non-zero error counts     -> inspect kernel.log and pipewire.log"
