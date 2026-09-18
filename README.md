@@ -147,10 +147,19 @@ make install-cachyos
 
 The CachyOS profile also includes a user timer that keeps Focal Shape monitors
 awake on weekdays from 09:00 through 16:55. Every five minutes it sends a
-one-second, 22 kHz pulse directly to every connected Focusrite/Scarlett output;
+two-second, 20 kHz pulse directly to every connected Focusrite/Scarlett output,
+with a 200 ms fade at each end to prevent clicks;
 it does nothing when the interface is disconnected. `make install-cachyos`
 reloads the systemd user manager and enables and starts the timer automatically;
 `make remove-cachyos` disables it before removing the Stow links.
+
+The CachyOS profile pins PipeWire to 44.1 kHz. To test different keepalive
+signals manually, specify frequency in hertz, linear volume, and duration in
+seconds (defaults: `20000`, `0.9`, and `2`):
+
+```sh
+focal-keepalive --frequency 18000 --volume 0.5 --duration 5
+```
 
 The laptop panel is 1920x1200 and runs at its native 1.5x scale, giving it a
 1280x800 logical size. The CachyOS monitor profile places it at `640x1440`:

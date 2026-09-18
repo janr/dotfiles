@@ -1,16 +1,54 @@
 #!/usr/bin/env python3
 """Keep Focal monitors awake with a quiet ultrasonic Focusrite-only pulse."""
 
+import argparse
 from array import array
 import math
 import subprocess
 import sys
 
 
-RATE = 48_000
-DURATION_SECONDS = 1
-FREQUENCY_HZ = 22_000
-VOLUME = 0.2  # -14 dBFS; leaves headroom for the downstream mixer attenuation.
+RATE = 44_100
+FADE_SECONDS = 0.2
+DEFAULT_DURATION = 2.0
+DEFAULT_FREQUENCY = 20_000.0
+DEFAULT_VOLUME = 0.9  # Approximately -1 dBFS before downstream attenuation.
+
+
+def arguments() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Play a tone through every connected Focusrite/Scarlett output.",
+    )
+    parser.add_argument(
+        "-f",
+        "--frequency",
+        type=float,
+        default=DEFAULT_FREQUENCY,
+        help=f"tone frequency in Hz (default: {DEFAULT_FREQUENCY:g})",
+    )
+    parser.add_argument(
+        "-v",
+        "--volume",
+        type=float,
+        default=DEFAULT_VOLUME,
+        help=f"linear PipeWire volume from 0.0 to 1.0 (default: {DEFAULT_VOLUME:g})",
+    )
+    parser.add_argument(
+        "-d",
+        "--duration",
+        type=float,
+        default=DEFAULT_DURATION,
+        help=f"duration in seconds (default: {DEFAULT_DURATION:g})",
+    )
+    args = parser.parse_args()
+
+    if not math.isfinite(args.frequency) or not 0 < args.frequency < RATE / 2:
+        parser.error(f"frequency must be above 0 and below {RATE / 2:g} Hz")
+    if not math.isfinite(args.volume) or not 0 < args.volume <= 1:
+        parser.error("volume must be above 0 and no greater than 1")
+    if not math.isfinite(args.duration) or args.duration <= 0:
+        parser.error("duration must be above 0 seconds")
+    return args
 
 
 def focusrite_sinks() -> list[str]:
@@ -36,10 +74,22 @@ def focusrite_sinks() -> list[str]:
     return matches
 
 
-def pulse() -> bytes:
+def pulse(frequency: float, duration: float) -> bytes:
     samples = array("h")
-    for frame in range(RATE * DURATION_SECONDS):
-        sample = round(32767 * math.sin(2 * math.pi * FREQUENCY_HZ * frame / RATE))
+    frame_count = round(RATE * duration)
+    fade_frames = min(round(RATE * FADE_SECONDS), frame_count // 2)
+    for frame in range(frame_count):
+        if frame < fade_frames:
+            envelope = frame / fade_frames
+        elif frame >= frame_count - fade_frames:
+            envelope = (frame_count - frame - 1) / fade_frames
+        else:
+            envelope = 1.0
+        sample = round(
+            32767
+            * envelope
+            * math.sin(2 * math.pi * frequency * frame / RATE)
+        )
         samples.extend((sample, sample))
     if sys.byteorder != "little":
         samples.byteswap()
@@ -47,11 +97,12 @@ def pulse() -> bytes:
 
 
 def main() -> int:
+    args = arguments()
     sinks = focusrite_sinks()
     if not sinks:
         return 0
 
-    audio = pulse()
+    audio = pulse(args.frequency, args.duration)
     status = 0
     try:
         for sink in sinks:
@@ -68,7 +119,7 @@ def main() -> int:
                     "--format",
                     "s16",
                     "--volume",
-                    str(VOLUME),
+                    str(args.volume),
                     "--target",
                     sink,
                     "-",
