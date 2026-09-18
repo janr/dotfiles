@@ -31,6 +31,13 @@ start = []
 center = [ "workspaces" ]
 end = []
 
+[notification]
+# Kept in sync at runtime by ~/.config/hypr/scripts/notify-follow-focus, which
+# targets whichever monitor currently has focus so popups don't appear on
+# every display. An empty list falls back to Noctalia's own default of
+# showing on all monitors.
+monitors = [ "eDP-1" ]
+
 [shell]
 clipboard_image_action_command = "satty -f -"
 launch_apps_as_systemd_services = true

@@ -39,6 +39,7 @@ Super-key driven workflow where possible.
   hotplug to settle before rebuilding Waybar, and still suspends on an undocked
   lid close after a short grace period.
 - Enables focus-follow-mouse behavior.
+- Keeps Noctalia notification popups on whichever monitor currently has focus.
 - Uses the Hyprland `master` layout with an Awesome-like master factor.
 - Defaults the portrait Samsung display to a top-master orientation so windows
   stack vertically on the rotated monitor.
