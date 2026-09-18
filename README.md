@@ -144,6 +144,13 @@ mv ~/.config/hypr/config/{autostart,binds,monitors,variables,workspaces}.lua \
 make install-cachyos
 ```
 
+The CachyOS profile also includes a user timer that keeps Focal Shape monitors
+awake on weekdays from 09:00 through 16:55. Every five minutes it sends a
+one-second, 22 kHz pulse directly to every connected Focusrite/Scarlett output;
+it does nothing when the interface is disconnected. `make install-cachyos`
+reloads the systemd user manager and enables and starts the timer automatically;
+`make remove-cachyos` disables it before removing the Stow links.
+
 The laptop panel is 1920x1200 and runs at its native 1.5x scale, giving it a
 1280x800 logical size. The CachyOS monitor profile places it at `640x1440`:
 directly below the 1920x1080 logical Acer display and immediately left of the

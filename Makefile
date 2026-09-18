@@ -12,23 +12,35 @@ PACKAGES := $(UBUNTU_PACKAGES)
 endif
 TARGET := $(HOME)
 STOW := stow
+SYSTEMCTL_USER := systemctl --user
+SYSTEMD_USER_DIR := $(TARGET)/.config/systemd/user
 
 .PHONY: install install-ubuntu install-cachyos remove remove-cachyos dry-run dry-run-ubuntu dry-run-cachyos restow
 
 install:
+	$(if $(filter cachyos,$(OS_ID)),mkdir -p $(SYSTEMD_USER_DIR))
 	$(STOW) -t $(TARGET) $(PACKAGES)
+	$(if $(filter cachyos,$(OS_ID)),$(SYSTEMCTL_USER) daemon-reload)
+	$(if $(filter cachyos,$(OS_ID)),$(SYSTEMCTL_USER) enable --now focal-keepalive.timer)
 
 install-ubuntu:
 	$(STOW) -t $(TARGET) $(UBUNTU_PACKAGES)
 
 install-cachyos:
+	mkdir -p $(SYSTEMD_USER_DIR)
 	$(STOW) -t $(TARGET) $(CACHYOS_PACKAGES)
+	$(SYSTEMCTL_USER) daemon-reload
+	$(SYSTEMCTL_USER) enable --now focal-keepalive.timer
 
 remove:
+	$(if $(filter cachyos,$(OS_ID)),-$(SYSTEMCTL_USER) disable --now focal-keepalive.timer)
 	$(STOW) -D -t $(TARGET) $(PACKAGES)
+	$(if $(filter cachyos,$(OS_ID)),$(SYSTEMCTL_USER) daemon-reload)
 
 remove-cachyos:
+	-$(SYSTEMCTL_USER) disable --now focal-keepalive.timer
 	$(STOW) -D -t $(TARGET) $(CACHYOS_PACKAGES)
+	$(SYSTEMCTL_USER) daemon-reload
 
 dry-run:
 	$(STOW) -n -v -t $(TARGET) $(PACKAGES)
@@ -41,3 +53,4 @@ dry-run-cachyos:
 
 restow:
 	$(STOW) -R -t $(TARGET) $(PACKAGES)
+	$(if $(filter cachyos,$(OS_ID)),$(SYSTEMCTL_USER) daemon-reload)

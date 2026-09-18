@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+"""Keep Focal monitors awake with a quiet ultrasonic Focusrite-only pulse."""
+
+from array import array
+import math
+import subprocess
+import sys
+
+
+RATE = 48_000
+DURATION_SECONDS = 1
+FREQUENCY_HZ = 22_000
+VOLUME = 0.2  # -14 dBFS; leaves headroom for the downstream mixer attenuation.
+
+
+def focusrite_sinks() -> list[str]:
+    try:
+        sinks = subprocess.run(
+            ["pactl", "list", "short", "sinks"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.splitlines()
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return []
+
+    matches = []
+    for line in sinks:
+        fields = line.split()
+        if len(fields) < 2:
+            continue
+        name = fields[1]
+        if "focusrite" in name.lower() or "scarlett" in name.lower():
+            matches.append(name)
+
+    return matches
+
+
+def pulse() -> bytes:
+    samples = array("h")
+    for frame in range(RATE * DURATION_SECONDS):
+        sample = round(32767 * math.sin(2 * math.pi * FREQUENCY_HZ * frame / RATE))
+        samples.extend((sample, sample))
+    if sys.byteorder != "little":
+        samples.byteswap()
+    return samples.tobytes()
+
+
+def main() -> int:
+    sinks = focusrite_sinks()
+    if not sinks:
+        return 0
+
+    audio = pulse()
+    status = 0
+    try:
+        for sink in sinks:
+            result = subprocess.run(
+                [
+                    "pw-play",
+                    "--raw",
+                    "--rate",
+                    str(RATE),
+                    "--channels",
+                    "2",
+                    "--channel-map",
+                    "stereo",
+                    "--format",
+                    "s16",
+                    "--volume",
+                    str(VOLUME),
+                    "--target",
+                    sink,
+                    "-",
+                ],
+                input=audio,
+                check=False,
+            )
+            if result.returncode != 0:
+                status = result.returncode
+        return status
+    except FileNotFoundError:
+        return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

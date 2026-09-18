@@ -1,0 +1,6 @@
+[Unit]
+Description=Keep Focal monitors awake through the Focusrite interface
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/focal-keepalive
