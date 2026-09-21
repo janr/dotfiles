@@ -51,7 +51,7 @@ def arguments() -> argparse.Namespace:
     return args
 
 
-def focusrite_sinks() -> list[str]:
+def focusrite_sinks() -> list[tuple[str, str]]:
     try:
         sinks = subprocess.run(
             ["pactl", "list", "short", "sinks"],
@@ -67,11 +67,53 @@ def focusrite_sinks() -> list[str]:
         fields = line.split()
         if len(fields) < 2:
             continue
-        name = fields[1]
+        index, name = fields[:2]
         if "focusrite" in name.lower() or "scarlett" in name.lower():
-            matches.append(name)
+            matches.append((index, name))
 
     return matches
+
+
+def active_sink_indexes(pactl_output: str) -> set[str]:
+    """Return sink indexes used by uncorked playback streams."""
+    active: set[str] = set()
+    sink_index: str | None = None
+    corked = False
+
+    def finish_block() -> None:
+        if sink_index is not None and not corked:
+            active.add(sink_index)
+
+    for line in pactl_output.splitlines():
+        if line.startswith("Sink Input #"):
+            finish_block()
+            sink_index = None
+            corked = False
+            continue
+        key, separator, value = line.strip().partition(":")
+        if not separator:
+            continue
+        if key.lower() == "sink":
+            sink_index = value.strip()
+        elif key.lower() == "corked":
+            corked = value.strip().lower() == "yes"
+    finish_block()
+    return active
+
+
+def playing_sink_indexes() -> set[str] | None:
+    """Return active sinks, or None when playback activity cannot be checked."""
+    try:
+        output = subprocess.run(
+            ["pactl", "list", "sink-inputs"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        ).stdout
+    except (FileNotFoundError, subprocess.SubprocessError):
+        return None
+    return active_sink_indexes(output)
 
 
 def pulse(frequency: float, duration: float) -> bytes:
@@ -102,10 +144,16 @@ def main() -> int:
     if not sinks:
         return 0
 
+    playing = playing_sink_indexes()
+    if playing is None:
+        return 0
+
     audio = pulse(args.frequency, args.duration)
     status = 0
     try:
-        for sink in sinks:
+        for sink_index, sink_name in sinks:
+            if sink_index in playing:
+                continue
             result = subprocess.run(
                 [
                     "pw-play",
@@ -121,7 +169,7 @@ def main() -> int:
                     "--volume",
                     str(args.volume),
                     "--target",
-                    sink,
+                    sink_name,
                     "-",
                 ],
                 input=audio,

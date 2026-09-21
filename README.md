@@ -253,6 +253,10 @@ seconds (defaults: `20000`, `0.9`, and `2`):
 focal-keepalive --frequency 18000 --volume 0.5 --duration 5
 ```
 
+The keepalive skips each Focusrite/Scarlett output that already has an active
+playback stream. If playback activity cannot be queried, it skips the tone
+entirely.
+
 The laptop panel is 1920x1200 and runs at its native 1.5x scale, giving it a
 1280x800 logical size. The CachyOS monitor profile places it at `640x1440`:
 directly below the 1920x1080 logical Acer display and immediately left of the
