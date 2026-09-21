@@ -62,6 +62,8 @@ Super-key driven workflow where possible.
   the master window.
 - Includes local cheatsheets for Hyprland (`SUPER+SHIFT+H`), Neovim
   (`SUPER+SHIFT+N`), and Pi (`SUPER+SHIFT+P`).
+- Sends a PDF open in a viewer or a PDF/arXiv browser tab on the active
+  workspace to reMarkable Cloud with `SUPER+SHIFT+R`.
 - Supports `SUPER+Left/Right` for occupied-workspace navigation across `1-18`
   with one connected display, or within the focused display's workspace set with
   multiple connected displays.
@@ -113,6 +115,35 @@ sudo apt install stow
 # CachyOS / Arch
 sudo pacman -S --needed stow
 ```
+
+The reMarkable shortcut additionally needs `curl`, `jq`, `wl-clipboard`, and
+`libnotify`. `make install`, `make install-ubuntu`, and `make install-cachyos`
+automatically download a pinned, checksum-verified
+[`rmapi`](https://github.com/ddvk/rmapi) release into the isolated
+`~/.local/share/remarkable-push/bin` directory. (`rmapi` is a Go executable,
+so a Python virtual environment would not isolate or install it.) To install it
+separately or authenticate the account, run:
+
+```sh
+make setup-remarkable
+make remarkable-auth
+```
+
+Running the Hyprland shortcut without saved credentials also opens a Kitty
+terminal automatically for the reMarkable one-time device code. After successful
+authentication the terminal closes and the original upload continues. Revoked
+or expired credentials trigger the same flow and one automatic upload retry. If
+Kitty is unavailable, the script falls back to `x-terminal-emulator`.
+
+By default PDFs are uploaded to the cloud root. If a document with the same
+name already exists, the shortcut preserves it and its annotations by uploading
+the new copy as `name (1).pdf`, `name (2).pdf`, and so on. Set
+`REMARKABLE_DIR` in the Hyprland environment to upload to another existing
+cloud folder. The browser
+integration supports Zen/Firefox and Chromium-family browsers; it briefly
+focuses a matching PDF/arXiv window to copy its current URL, then restores the
+previous focus and clipboard. Downloads requiring browser cookies are not
+supported.
 
 On Ubuntu, install the shared files, the original Hyprland profile, and
 Waybar:
@@ -250,6 +281,9 @@ directory:
 ```sh
 stow -t ~ bash bin hypr kitty nvim share waybar
 ```
+
+The downloaded reMarkable helper is intentionally preserved by `make remove`.
+Remove it explicitly with `make remove-remarkable`.
 
 Remove links manually:
 
