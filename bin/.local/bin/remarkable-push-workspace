@@ -1,0 +1,297 @@
+#!/usr/bin/env bash
+# Upload the PDF shown on the active Hyprland workspace to reMarkable Cloud.
+set -uo pipefail
+
+notify() {
+    notify-send --app-name='reMarkable' "$@" 2>/dev/null || true
+}
+
+fail() {
+    printf 'remarkable-push-workspace: %s\n' "$1" >&2
+    notify -u critical 'Send to reMarkable failed' "$1"
+    exit 1
+}
+
+for command in hyprctl jq curl flock python3 wl-copy wl-paste; do
+    command -v "$command" >/dev/null 2>&1 || fail "Missing required command: $command"
+done
+
+rmapi=${REMARKABLE_RMAPI:-$HOME/.local/share/remarkable-push/bin/rmapi}
+if [[ ! -x $rmapi ]]; then
+    rmapi=$(command -v rmapi 2>/dev/null || true)
+fi
+[[ -x $rmapi ]] || fail 'rmapi is not installed. Run “make setup-remarkable” in the dotfiles repository.'
+
+runtime_dir=${XDG_RUNTIME_DIR:-/tmp}
+exec 9>"$runtime_dir/remarkable-push-workspace.lock"
+flock -n 9 || fail 'An upload is already in progress.'
+
+tmpdir=$(mktemp -d)
+active_window=$(hyprctl -j activewindow 2>/dev/null || printf '{}')
+old_address=$(jq -r '.address // empty' <<<"$active_window")
+initial_workspace_id=$(jq -r '.workspace.id // empty' <<<"$active_window")
+clipboard_file="$tmpdir/clipboard"
+had_clipboard=false
+if command -v wl-paste >/dev/null 2>&1 && command -v wl-copy >/dev/null 2>&1; then
+    if wl-paste --no-newline >"$clipboard_file" 2>/dev/null; then
+        had_clipboard=true
+    fi
+fi
+
+cleanup() {
+    # wl-copy forks to serve the restored clipboard. Release the lock before
+    # spawning it so the clipboard process does not inherit the lock forever.
+    flock -u 9 2>/dev/null || true
+    exec 9>&-
+
+    if command -v wl-copy >/dev/null 2>&1; then
+        if $had_clipboard; then
+            wl-copy <"$clipboard_file" 2>/dev/null || true
+        else
+            wl-copy --clear 2>/dev/null || true
+        fi
+    fi
+    if [[ -n $old_address ]]; then
+        hyprctl dispatch focuswindow "address:$old_address" >/dev/null 2>&1 || true
+    fi
+    rm -rf "$tmpdir"
+}
+trap cleanup EXIT
+trap 'exit 130' INT TERM
+
+authenticate_rmapi() {
+    notify 'reMarkable login required' 'Opening a terminal for the one-time device code…'
+
+    if command -v kitty >/dev/null 2>&1; then
+        kitty --class remarkable-auth --title 'Connect reMarkable account' "$rmapi" ls
+    elif command -v x-terminal-emulator >/dev/null 2>&1; then
+        x-terminal-emulator -T 'Connect reMarkable account' -e "$rmapi" ls
+    else
+        fail 'Authentication needs a terminal. Run “make remarkable-auth” from one.'
+    fi
+
+    # The terminal normally closes after a successful listing. Verify that the
+    # token was saved before downloading a document or changing the clipboard.
+    "$rmapi" -ni ls >/dev/null 2>&1 \
+        || fail 'reMarkable authentication was cancelled or unsuccessful.'
+}
+
+# rmapi uses ~/.rmapi when it already exists, otherwise the XDG config path.
+# An explicit RMAPI_CONFIG follows rmapi's own precedence.
+if [[ -n ${RMAPI_CONFIG:-} ]]; then
+    rmapi_config=$RMAPI_CONFIG
+elif [[ -e $HOME/.rmapi ]]; then
+    rmapi_config=$HOME/.rmapi
+else
+    rmapi_config=${XDG_CONFIG_HOME:-$HOME/.config}/rmapi/rmapi.conf
+fi
+
+if ! grep -qE '^devicetoken:[[:space:]]*[[:alnum:]]' "$rmapi_config" 2>/dev/null; then
+    authenticate_rmapi
+fi
+
+# Prefer the workspace of the window that received the key binding. After
+# resume, monitor focus and Hyprland's activeworkspace can briefly disagree.
+workspace_id=$initial_workspace_id
+if [[ -z $workspace_id ]]; then
+    workspace_id=$(hyprctl -j activeworkspace 2>/dev/null | jq -r '.id // empty')
+fi
+[[ -n $workspace_id ]] || fail 'Could not determine the active workspace.'
+clients=$(hyprctl -j clients 2>/dev/null) || fail 'Could not query Hyprland windows.'
+
+# focusHistoryID puts the most recently focused matching window first.
+mapfile -t windows < <(
+    jq -r --argjson workspace "$workspace_id" '
+        map(select(.workspace.id == $workspace))
+        | sort_by(.focusHistoryID)
+        | .[] | [.address, (.pid | tostring), .class, .title] | @tsv
+    ' <<<"$clients"
+)
+
+find_local_pdf() {
+    local pid=$1 fd target arg
+
+    # Open file descriptors are more reliable than argv for document viewers.
+    if [[ -d /proc/$pid/fd ]]; then
+        for fd in /proc/"$pid"/fd/*; do
+            target=$(readlink -f "$fd" 2>/dev/null || true)
+            if [[ ${target,,} == *.pdf && -r $target ]]; then
+                printf '%s\n' "$target"
+                return 0
+            fi
+        done
+    fi
+
+    if [[ -r /proc/$pid/cmdline ]]; then
+        while IFS= read -r -d '' arg; do
+            if [[ ${arg,,} == *.pdf ]]; then
+                [[ $arg == /* ]] || arg=$(readlink -f "/proc/$pid/cwd/$arg" 2>/dev/null || true)
+                if [[ -r $arg ]]; then
+                    printf '%s\n' "$arg"
+                    return 0
+                fi
+            fi
+        done </proc/"$pid"/cmdline
+    fi
+    return 1
+}
+
+copy_browser_url() {
+    local address=$1 value attempt sentinel
+    command -v wl-paste >/dev/null 2>&1 || return 1
+
+    hyprctl dispatch focuswindow "address:$address" >/dev/null 2>&1 || return 1
+    for attempt in 1 2 3; do
+        # A sentinel prevents a missed Ctrl+C from reusing a stale PDF URL.
+        sentinel="remarkable-url-$RANDOM-$attempt"
+        printf '%s' "$sentinel" | wl-copy
+        hyprctl dispatch sendshortcut "CTRL,L,address:$address" >/dev/null 2>&1 || continue
+        sleep "0.$((attempt + 1))"
+        hyprctl dispatch sendshortcut "CTRL,C,address:$address" >/dev/null 2>&1 || continue
+        sleep "0.$((attempt + 2))"
+        value=$(wl-paste --no-newline 2>/dev/null || true)
+        if [[ $value != "$sentinel" && $value =~ ^(https?|file):// ]]; then
+            hyprctl dispatch sendshortcut ",escape,address:$address" >/dev/null 2>&1 || true
+            printf '%s\n' "$value"
+            return 0
+        fi
+    done
+    hyprctl dispatch sendshortcut ",escape,address:$address" >/dev/null 2>&1 || true
+    return 1
+}
+
+source_pdf=''
+source_url=''
+source_title=''
+
+# First prefer a local PDF in a dedicated viewer.
+for row in "${windows[@]}"; do
+    IFS=$'\t' read -r address pid class title <<<"$row"
+    if [[ $class =~ ^(org\.pwmt\.zathura|Zathura|org\.gnome\.Evince|evince|org\.kde\.okular|Okular|mupdf|llpp|sioyek)$ ]]; then
+        source_pdf=$(find_local_pdf "$pid" || true)
+        if [[ -n $source_pdf ]]; then
+            source_title=$title
+            break
+        fi
+    fi
+done
+
+# Otherwise inspect browser windows on this workspace. A title alone is not
+# enough: unrelated pages can mention “PDF” or “arXiv”, so validate the URL.
+if [[ -z $source_pdf ]]; then
+    for row in "${windows[@]}"; do
+        IFS=$'\t' read -r address pid class title <<<"$row"
+        class=${class,,}
+        if [[ $class =~ (zen|firefox|chromium|chrome|brave|vivaldi|qutebrowser) ]]; then
+            candidate_url=$(copy_browser_url "$address" || true)
+            url_without_query=${candidate_url%%[?#]*}
+            candidate_url_lower=${candidate_url,,}
+            if [[ ${url_without_query,,} == *.pdf \
+                || $candidate_url_lower =~ ^https?://([^/]+\.)?arxiv\.org/(abs|pdf|html)/ ]]; then
+                source_url=$candidate_url
+                source_title=$title
+                break
+            fi
+
+            # Firefox/Zen's PDF viewer title retains the arXiv identifier. This
+            # is a safe fallback when its address bar is still waking up.
+            if [[ $title =~ ([0-9]{4}\.[0-9]{4,5}(v[0-9]+)?)\.pdf ]]; then
+                source_url="https://arxiv.org/pdf/${BASH_REMATCH[1]}"
+                source_title=$title
+                break
+            fi
+        fi
+    done
+fi
+
+[[ -n $source_pdf || -n $source_url ]] || \
+    fail 'No local PDF viewer or browser PDF/arXiv tab was found on this workspace.'
+
+pdf="$tmpdir/document.pdf"
+name='document'
+if [[ -n $source_pdf ]]; then
+    cp -- "$source_pdf" "$pdf" || fail 'Could not copy the open PDF.'
+    name=$(basename "$source_pdf" .pdf)
+else
+    # Convert arXiv abstract/HTML links into the stable PDF endpoint.
+    normalized=$(python3 - "$source_url" <<'PY'
+import re
+import sys
+from urllib.parse import urlsplit
+
+url = sys.argv[1]
+p = urlsplit(url)
+if p.netloc.lower() in {"arxiv.org", "www.arxiv.org", "export.arxiv.org"}:
+    match = re.match(r"^/(?:abs|pdf|html)/(.+?)(?:\.pdf)?$", p.path)
+    if match:
+        url = "https://arxiv.org/pdf/" + match.group(1)
+print(url)
+PY
+) || fail 'Could not parse the browser URL.'
+    url_path=${normalized%%\?*}
+    candidate=$(basename "$url_path")
+    candidate=${candidate%.pdf}
+    [[ -n $candidate && $candidate != / ]] && name=$candidate
+    if [[ $normalized =~ ^https://arxiv\.org/pdf/ && -n $source_title ]]; then
+        paper_title=$(printf '%s' "$source_title" | sed -E \
+            's/^[[]PDF[]][[:space:]]*//; s/[[:space:]]+—[[:space:]]+(Zen Browser|Mozilla Firefox|Google Chrome)$//; s/[[:space:]]+\|[[:space:]]+arXiv.*$//; s/[.]pdf$//I')
+        [[ -n $paper_title ]] && name=$paper_title
+    fi
+
+    notify 'Sending to reMarkable' "Downloading ${name}…"
+    curl --fail --silent --show-error --location --retry 2 --connect-timeout 15 \
+        --user-agent 'Mozilla/5.0' --output "$pdf" "$normalized" \
+        || fail 'The PDF download failed.'
+fi
+
+# Reject login/error HTML pages returned with a successful HTTP status.
+if [[ $(head -c 5 "$pdf" 2>/dev/null) != '%PDF-' ]]; then
+    fail 'The selected document is not a PDF (it may require a browser login).'
+fi
+
+name=$(printf '%s' "$name" | sed 's/[^[:alnum:]. _-]/_/g; s/^[ .]*//; s/[ .]*$//')
+[[ -n $name ]] || name='document'
+upload="$tmpdir/$name.pdf"
+mv "$pdf" "$upload"
+
+upload_pdf() {
+    if [[ -n ${REMARKABLE_DIR:-} ]]; then
+        "$rmapi" put "$upload" "$REMARKABLE_DIR"
+    else
+        "$rmapi" put "$upload"
+    fi
+}
+
+notify 'Sending to reMarkable' "Uploading ${name}.pdf…"
+rmapi_error=$tmpdir/rmapi-error
+base_name=$name
+suffix=0
+reauthenticated=false
+
+while ! upload_pdf >/dev/null 2>"$rmapi_error"; do
+    if grep -Fqi 'entry already exists' "$rmapi_error"; then
+        # Preserve the cloud document and its annotations. The local filename
+        # controls the cloud name, so retry as “document (1).pdf”, then (2), etc.
+        suffix=$((suffix + 1))
+        (( suffix <= 999 )) || fail 'Could not find an unused reMarkable filename.'
+        name="$base_name ($suffix)"
+        renamed_upload="$tmpdir/$name.pdf"
+        mv -- "$upload" "$renamed_upload" || fail 'Could not prepare a uniquely named PDF.'
+        upload=$renamed_upload
+        notify 'Sending to reMarkable' "Name already exists; trying ${name}.pdf…"
+        continue
+    fi
+
+    # A saved device token can later be revoked. In that case reopen the same
+    # interactive flow and retry once; do not prompt for unrelated failures.
+    if ! $reauthenticated \
+        && grep -Eiq '(auth|unauthori[sz]ed|device.?token|missing token|HTTP (401|403))' "$rmapi_error"; then
+        authenticate_rmapi
+        reauthenticated=true
+        continue
+    fi
+
+    fail 'rmapi could not upload the PDF. Check the network or run “make remarkable-auth”.'
+done
+
+notify 'Sent to reMarkable' "${name}.pdf"
