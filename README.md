@@ -153,6 +153,67 @@ it does nothing when the interface is disconnected. `make install-cachyos`
 reloads the systemd user manager and enables and starts the timer automatically;
 `make remove-cachyos` disables it before removing the Stow links.
 
+### Microphone footswitch
+
+The CachyOS profile includes `mic-pedal`, a user service for a momentary USB
+footswitch. Its normal behavior is push-to-mute: the microphone is live while
+the pedal is released and muted while it is held. When an active PipeWire
+capture belongs to Claude or ChatGPT, it automatically changes to
+push-to-talk: released is muted and held is live. Native clients are identified
+from PipeWire/PulseAudio stream metadata. For a browser capture, the active
+Hyprland window title must also match an assistant pattern, so a Google Meet
+capture continues to use push-to-mute.
+
+Install the runtime dependencies before enabling the profile:
+
+```sh
+sudo pacman -S --needed python-evdev libnotify
+```
+
+To install the dependencies, udev rule, Stow links, and user service together,
+run the dedicated end-to-end target instead:
+
+```sh
+make install-mic-pedal
+```
+
+The hardware-specific udev rule intentionally is not installed by Stow. It
+matches the PCsensor `3553:b001` keyboard endpoint exactly, excluding the
+device's mouse and absolute-axis endpoints. It also tells libinput/Hyprland to
+ignore that endpoint, so its synthetic `b` never reaches a focused application,
+even while the daemon is stopped. Install and activate it once:
+
+```sh
+make install-mic-pedal-udev
+```
+
+This target prompts through `sudo`, installs the rule under
+`/etc/udev/rules.d`, and reloads udev. Unplug and reconnect the pedal afterward
+so both its access ACL and libinput exclusion are applied. It installs only the
+device rule; use `make install-mic-pedal` for the complete controller setup.
+
+Configure the event key and detection patterns in
+`~/.config/mic-pedal/config.toml`. This pedal emits `KEY_B`; the daemon grabs
+its keyboard endpoint exclusively, while the udev rule independently excludes
+it from libinput and creates `/dev/input/mic-pedal`. The pedal must emit
+separate key-down and key-up events; autorepeat is ignored.
+
+Useful checks:
+
+```sh
+mic-pedal status
+mic-pedal refresh
+systemctl --user status mic-pedal.service
+journalctl --user -u mic-pedal.service -f
+evtest /dev/input/mic-pedal
+```
+
+`SUPER+SHIFT+F13` also displays the current status as a notification. The
+daemon explicitly applies mute/unmute rather than toggling
+state, serializes pedal events, mutes on disconnect and shutdown, and retries
+when the device is absent. It controls PipeWire clients only; it cannot mute an
+audio interface's direct-monitor path or software that bypasses PipeWire.
+
 The CachyOS profile pins PipeWire to 44.1 kHz. To test different keepalive
 signals manually, specify frequency in hertz, linear volume, and duration in
 seconds (defaults: `20000`, `0.9`, and `2`):

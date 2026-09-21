@@ -1,0 +1,11 @@
+# The udev rule supplies this stable symlink.
+device = "/dev/input/mic-pedal"
+pedal_key = "KEY_B"
+pipewire_target = "@DEFAULT_AUDIO_SOURCE@"
+poll_interval = 0.5
+notifications = true
+
+# Match native capture-client metadata. For browser-based assistants, these
+# are matched against the active Hyprland window while the browser is recording.
+assistant_patterns = ["chatgpt", "openai", "claude"]
+browser_patterns = ["firefox", "zen", "chromium", "chrome"]

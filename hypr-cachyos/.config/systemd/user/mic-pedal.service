@@ -1,0 +1,14 @@
+[Unit]
+Description=Control the PipeWire microphone with a USB footswitch
+After=graphical-session.target pipewire.service
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/mic-pedal daemon
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=5
+
+[Install]
+WantedBy=graphical-session.target

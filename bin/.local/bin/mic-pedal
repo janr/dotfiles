@@ -1,0 +1,438 @@
+#!/usr/bin/env python3
+"""Momentary microphone footswitch with automatic assistant detection."""
+
+from __future__ import annotations
+
+import argparse
+from dataclasses import dataclass
+import json
+import os
+from pathlib import Path
+import selectors
+import signal
+import socket
+import subprocess
+import sys
+import time
+import tomllib
+
+
+DEFAULT_CONFIG = Path("~/.config/mic-pedal/config.toml").expanduser()
+SOCKET_NAME = "mic-pedal.sock"
+NOTIFICATION_ID = "84391"
+
+
+@dataclass(frozen=True)
+class Config:
+    device: str
+    pedal_key: str
+    target: str
+    assistant_patterns: tuple[str, ...]
+    browser_patterns: tuple[str, ...]
+    poll_interval: float
+    notifications: bool
+
+
+@dataclass
+class PedalState:
+    """Pure state machine. True means muted."""
+
+    assistant: bool = False
+    pressed: bool = False
+
+    @property
+    def mode(self) -> str:
+        return "ptt" if self.assistant else "ptm"
+
+    @property
+    def muted(self) -> bool:
+        return not self.pressed if self.assistant else self.pressed
+
+    def set_pressed(self, pressed: bool) -> bool:
+        changed = self.pressed != pressed
+        self.pressed = pressed
+        return changed
+
+    def set_assistant(self, assistant: bool) -> bool:
+        changed = self.assistant != assistant
+        self.assistant = assistant
+        return changed
+
+
+def load_config(path: Path) -> Config:
+    with path.open("rb") as handle:
+        raw = tomllib.load(handle)
+    patterns = tuple(str(value).lower() for value in raw.get("assistant_patterns", ()))
+    if not patterns:
+        raise ValueError("assistant_patterns must contain at least one value")
+    interval = float(raw.get("poll_interval", 0.5))
+    if interval < 0.1:
+        raise ValueError("poll_interval must be at least 0.1 seconds")
+    return Config(
+        device=str(raw.get("device", "/dev/input/mic-pedal")),
+        pedal_key=str(raw.get("pedal_key", "KEY_B")),
+        target=str(raw.get("pipewire_target", "@DEFAULT_AUDIO_SOURCE@")),
+        assistant_patterns=patterns,
+        browser_patterns=tuple(
+            str(value).lower()
+            for value in raw.get(
+                "browser_patterns", ("firefox", "zen", "chromium", "chrome")
+            )
+        ),
+        poll_interval=interval,
+        notifications=bool(raw.get("notifications", True)),
+    )
+
+
+def active_capture_blocks(pactl_output: str) -> list[str]:
+    """Return uncorked PipeWire/PulseAudio source-output descriptions."""
+    blocks: list[str] = []
+    current: list[str] = []
+    for line in pactl_output.splitlines():
+        if line.startswith("Source Output #"):
+            if current and not any("corked: yes" in item.lower() for item in current):
+                blocks.append("\n".join(current).lower())
+            current = [line]
+        elif current:
+            current.append(line)
+    if current and not any("corked: yes" in item.lower() for item in current):
+        blocks.append("\n".join(current).lower())
+    return blocks
+
+
+def assistant_from_observations(
+    capture_blocks: list[str], active_window: str, config: Config
+) -> bool:
+    capture_blocks = [block.lower() for block in capture_blocks]
+    if any(
+        pattern in block
+        for block in capture_blocks
+        for pattern in config.assistant_patterns
+    ):
+        return True
+    browser_capture = any(
+        pattern in block
+        for block in capture_blocks
+        for pattern in config.browser_patterns
+    )
+    window = active_window.lower()
+    return browser_capture and any(
+        pattern in window for pattern in config.assistant_patterns
+    )
+
+
+class AssistantDetector:
+    def __init__(self, config: Config):
+        self.config = config
+
+    def detect(self) -> bool:
+        capture_text = subprocess.run(
+            ["pactl", "list", "source-outputs"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        ).stdout
+        blocks = active_capture_blocks(capture_text)
+        if not blocks:
+            return False
+        active_window = ""
+        if any(
+            browser in block
+            for block in blocks
+            for browser in self.config.browser_patterns
+        ):
+            try:
+                active_window = subprocess.run(
+                    ["hyprctl", "activewindow", "-j"],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=1,
+                ).stdout
+            except (FileNotFoundError, subprocess.SubprocessError):
+                pass
+        return assistant_from_observations(blocks, active_window, self.config)
+
+
+class Daemon:
+    def __init__(self, config: Config, runtime_dir: Path):
+        self.config = config
+        self.runtime_dir = runtime_dir
+        self.socket_path = runtime_dir / SOCKET_NAME
+        self.selector = selectors.DefaultSelector()
+        self.state = PedalState()
+        self.detector = AssistantDetector(config)
+        self.device = None
+        self.listener: socket.socket | None = None
+        self.last_applied: bool | None = None
+        self.running = True
+        self.next_device_attempt = 0.0
+        self.next_detection = 0.0
+        self.last_device_error: str | None = None
+        self.last_detection_error: str | None = None
+        self.last_mute_error: str | None = None
+
+    def log(self, message: str) -> None:
+        print(f"mic-pedal: {message}", file=sys.stderr, flush=True)
+
+    def notify(self, summary: str, body: str = "") -> None:
+        if not self.config.notifications:
+            return
+        try:
+            subprocess.Popen(
+                ["notify-send", "-r", NOTIFICATION_ID, "-a", "mic-pedal", summary, body],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except FileNotFoundError:
+            pass
+
+    def apply_mute(self, muted: bool, *, force: bool = False) -> None:
+        if not force and muted == self.last_applied:
+            return
+        try:
+            result = subprocess.run(
+                ["wpctl", "set-mute", self.config.target, "1" if muted else "0"],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=2,
+            )
+        except (FileNotFoundError, subprocess.TimeoutExpired) as error:
+            self.last_applied = None
+            detail = str(error)
+            if detail != self.last_mute_error:
+                self.log(f"could not {'mute' if muted else 'unmute'} microphone: {detail}")
+                self.last_mute_error = detail
+            return
+        if result.returncode:
+            self.last_applied = None
+            detail = result.stderr.strip() or f"wpctl exited {result.returncode}"
+            if detail != self.last_mute_error:
+                self.log(f"could not {'mute' if muted else 'unmute'} microphone: {detail}")
+                self.last_mute_error = detail
+            return
+        self.last_mute_error = None
+        self.last_applied = muted
+
+    def apply_state(self) -> None:
+        self.apply_mute(self.state.muted)
+
+    def update_assistant(self) -> None:
+        try:
+            assistant = self.detector.detect()
+        except (FileNotFoundError, subprocess.SubprocessError) as error:
+            detail = str(error)
+            if detail != self.last_detection_error:
+                self.log(f"assistant detection failed; muting: {detail}")
+                self.notify("MIC: MUTED", "Assistant detection failed")
+                self.last_detection_error = detail
+            self.apply_mute(True)
+            return
+        self.last_detection_error = None
+        if self.state.set_assistant(assistant):
+            if assistant:
+                self.notify("MIC: PUSH TO TALK", "Assistant capture detected; released is muted")
+            else:
+                self.notify("MIC: PUSH TO MUTE", "Default mode; released is live")
+            self.log(f"mode changed to {self.state.mode}")
+        self.apply_state()
+
+    def open_device(self) -> None:
+        try:
+            from evdev import InputDevice, ecodes
+
+            key_code = ecodes.ecodes.get(self.config.pedal_key)
+            if not isinstance(key_code, int):
+                raise ValueError(f"unknown evdev key code: {self.config.pedal_key}")
+            device = InputDevice(self.config.device)
+            # The attached PCsensor pedal emits KEY_B. Keep that synthetic key
+            # away from applications while the daemon owns the device.
+            device.grab()
+            os.set_blocking(device.fd, False)
+            self.device = device
+            self.key_code = key_code
+            self.selector.register(device.fd, selectors.EVENT_READ, self.read_device)
+            self.last_device_error = None
+            self.state.set_pressed(False)
+            self.update_assistant()
+            self.apply_state()
+            self.log(f"listening on {device.path} ({device.name})")
+        except (ImportError, OSError, ValueError) as error:
+            message = str(error)
+            if message != self.last_device_error:
+                self.log(f"waiting for pedal: {message}")
+                self.last_device_error = message
+            self.next_device_attempt = time.monotonic() + 2
+
+    def close_device(self, reason: str) -> None:
+        if self.device is not None:
+            try:
+                self.selector.unregister(self.device.fd)
+            except (KeyError, OSError):
+                pass
+            self.device.close()
+            self.device = None
+        self.state.set_pressed(False)
+        self.apply_mute(True, force=True)
+        self.log(reason)
+        self.next_device_attempt = time.monotonic() + 1
+
+    def read_device(self, _fileobj: object, _mask: int) -> None:
+        from evdev import ecodes
+
+        try:
+            events = self.device.read()
+        except (OSError, TypeError) as error:
+            self.close_device(f"pedal disconnected: {error}")
+            return
+        for event in events:
+            if event.type != ecodes.EV_KEY or event.code != self.key_code:
+                continue
+            if event.value == 2:
+                continue
+            if event.value in (0, 1) and self.state.set_pressed(event.value == 1):
+                self.apply_state()
+
+    def status(self) -> dict[str, object]:
+        microphone = (
+            "unknown"
+            if self.last_applied is None
+            else "muted" if self.last_applied else "live"
+        )
+        return {
+            "mode": self.state.mode,
+            "assistant": self.state.assistant,
+            "pedal": "pressed" if self.state.pressed else "released",
+            "microphone": microphone,
+            "device": "connected" if self.device is not None else "disconnected",
+        }
+
+    def notify_status(self) -> None:
+        status = self.status()
+        behavior = "released is muted" if self.state.assistant else "released is live"
+        self.notify(
+            f"MIC: {self.state.mode.upper()}",
+            f"{behavior}; pedal {status['pedal']}; device {status['device']}",
+        )
+
+    def accept_client(self, listener: socket.socket, _mask: int) -> None:
+        connection, _ = listener.accept()
+        with connection:
+            try:
+                command = connection.recv(1024).decode().strip()
+                if command == "status":
+                    self.notify_status()
+                    response = {"ok": True, **self.status()}
+                elif command == "refresh":
+                    self.update_assistant()
+                    response = {"ok": True, **self.status()}
+                else:
+                    response = {"ok": False, "error": f"unknown command: {command}"}
+            except Exception as error:
+                response = {"ok": False, "error": str(error)}
+            connection.sendall((json.dumps(response) + "\n").encode())
+
+    def setup_socket(self) -> None:
+        self.runtime_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+        try:
+            self.socket_path.unlink()
+        except FileNotFoundError:
+            pass
+        listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        listener.bind(str(self.socket_path))
+        os.chmod(self.socket_path, 0o600)
+        listener.listen(4)
+        listener.setblocking(False)
+        self.listener = listener
+        self.selector.register(listener, selectors.EVENT_READ, self.accept_client)
+
+    def stop(self, _signum: int, _frame: object) -> None:
+        self.running = False
+
+    def run(self) -> int:
+        signal.signal(signal.SIGTERM, self.stop)
+        signal.signal(signal.SIGINT, self.stop)
+        self.setup_socket()
+        self.apply_mute(True, force=True)
+        self.open_device()
+        try:
+            while self.running:
+                now = time.monotonic()
+                if self.device is None and now >= self.next_device_attempt:
+                    self.open_device()
+                if self.device is not None and now >= self.next_detection:
+                    self.update_assistant()
+                    self.next_detection = now + self.config.poll_interval
+                for key, mask in self.selector.select(timeout=0.2):
+                    key.data(key.fileobj, mask)
+        finally:
+            self.apply_mute(True, force=True)
+            if self.device is not None:
+                self.close_device("pedal stopped")
+            if self.listener is not None:
+                self.listener.close()
+            try:
+                self.socket_path.unlink()
+            except FileNotFoundError:
+                pass
+        return 0
+
+
+def runtime_directory() -> Path:
+    value = os.environ.get("XDG_RUNTIME_DIR")
+    if not value:
+        raise RuntimeError("XDG_RUNTIME_DIR is not set")
+    return Path(value)
+
+
+def send_command(command: str) -> int:
+    path = runtime_directory() / SOCKET_NAME
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+            client.connect(str(path))
+            client.sendall((command + "\n").encode())
+            response = json.loads(client.recv(4096))
+    except (FileNotFoundError, ConnectionError) as error:
+        print(f"mic-pedal daemon is not available: {error}", file=sys.stderr)
+        return 1
+    if not response.get("ok"):
+        print(response.get("error", "command failed"), file=sys.stderr)
+        return 1
+    if command in ("status", "refresh"):
+        print(
+            f"{response['mode'].upper()}: microphone {response['microphone']}; "
+            f"pedal {response['pedal']}; device {response['device']}"
+        )
+    return 0
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("command", nargs="?", choices=("daemon", "status", "refresh"), default="status")
+    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    if args.command != "daemon":
+        return send_command(args.command)
+    try:
+        config = load_config(args.config.expanduser())
+        return Daemon(config, runtime_directory()).run()
+    except (OSError, ValueError, tomllib.TOMLDecodeError, RuntimeError) as error:
+        print(f"mic-pedal: {error}", file=sys.stderr)
+        try:
+            subprocess.run(
+                ["wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "1"],
+                check=False,
+            )
+        except FileNotFoundError:
+            pass
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,0 +1,3 @@
+# PCsensor FootSwitch 3553:b001, keyboard event endpoint only.
+# This deliberately excludes the device's mouse and absolute-axis endpoints.
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{id/vendor}=="3553", ATTRS{id/product}=="b001", ATTRS{name}=="PCsensor FootSwitch Keyboard", ENV{LIBINPUT_IGNORE_DEVICE}="1", TAG+="uaccess", SYMLINK+="input/mic-pedal"

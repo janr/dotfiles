@@ -83,6 +83,7 @@ hl.bind("XF86AudioRaiseVolume", command(noctalia .. "volume-up"), { locked = tru
 hl.bind("XF86AudioLowerVolume", command(noctalia .. "volume-down"), { locked = true, repeating = true })
 hl.bind("XF86AudioMute", command(noctalia .. "volume-mute"), { locked = true })
 hl.bind("XF86AudioMicMute", command(noctalia .. "mic-mute"), { locked = true })
+hl.bind(mod .. " + SHIFT + F13", command("mic-pedal status"))
 hl.bind("XF86AudioPlay", command(noctalia .. "media toggle"), { locked = true })
 hl.bind("XF86AudioPause", command(noctalia .. "media toggle"), { locked = true })
 hl.bind("XF86AudioNext", command(noctalia .. "media next"), { locked = true })
