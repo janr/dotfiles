@@ -36,7 +36,7 @@ end = []
 # targets whichever monitor currently has focus so popups don't appear on
 # every display. An empty list falls back to Noctalia's own default of
 # showing on all monitors.
-monitors = [ "eDP-1" ]
+monitors = [ "DP-8" ]
 
 [shell]
 clipboard_image_action_command = "satty -f -"
