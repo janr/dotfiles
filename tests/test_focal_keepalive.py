@@ -2,6 +2,7 @@ import importlib.machinery
 import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
+import subprocess
 import sys
 import unittest
 from unittest import mock
@@ -17,32 +18,39 @@ spec.loader.exec_module(focal_keepalive)
 
 
 class PlaybackDetectionTests(unittest.TestCase):
-    def test_uncorked_sink_input_is_active(self):
-        output = """Sink Input #42
-\tDriver: PipeWire
-\tSink: 51
-\tCorked: no
-"""
-        self.assertEqual(focal_keepalive.active_sink_indexes(output), {"51"})
+    @mock.patch.object(focal_keepalive.subprocess, "run")
+    def test_nonzero_monitor_sample_is_audio(self, run):
+        run.side_effect = subprocess.TimeoutExpired(
+            "parec", 1, output=b"\x00\x00\x01\x00"
+        )
 
-    def test_corked_sink_input_is_ignored(self):
-        output = """Sink Input #42
-\tSink: 51
-\tCorked: yes
-Sink Input #43
-\tSink: 52
-\tCorked: no
-"""
-        self.assertEqual(focal_keepalive.active_sink_indexes(output), {"52"})
+        self.assertTrue(focal_keepalive.sink_has_audio("focusrite"))
 
-    def test_stream_without_corked_field_is_treated_as_active(self):
-        output = """Sink Input #42
-\tSink: 51
-"""
-        self.assertEqual(focal_keepalive.active_sink_indexes(output), {"51"})
+    @mock.patch.object(focal_keepalive.subprocess, "run")
+    def test_zero_monitor_samples_are_silence(self, run):
+        run.side_effect = subprocess.TimeoutExpired(
+            "parec", 1, output=b"\x00\x00\x00\x00"
+        )
 
-    def test_no_sink_inputs_means_no_active_sinks(self):
-        self.assertEqual(focal_keepalive.active_sink_indexes(""), set())
+        self.assertFalse(focal_keepalive.sink_has_audio("focusrite"))
+
+    @mock.patch.object(focal_keepalive.subprocess, "run")
+    def test_monitor_failure_is_unknown(self, run):
+        run.side_effect = subprocess.CalledProcessError(1, "parec")
+
+        self.assertIsNone(focal_keepalive.sink_has_audio("focusrite"))
+
+    @mock.patch.object(
+        focal_keepalive, "sink_has_audio", side_effect=[False, True]
+    )
+    def test_playing_sink_indexes_uses_monitor_signal(self, has_audio):
+        sinks = [("51", "idle-focusrite"), ("52", "busy-focusrite")]
+
+        self.assertEqual(focal_keepalive.playing_sink_indexes(sinks), {"52"})
+        self.assertEqual(
+            has_audio.call_args_list,
+            [mock.call("idle-focusrite"), mock.call("busy-focusrite")],
+        )
 
     @mock.patch.object(focal_keepalive.subprocess, "run")
     @mock.patch.object(focal_keepalive, "pulse", return_value=b"tone")
@@ -63,6 +71,9 @@ Sink Input #43
         run.return_value.returncode = 0
 
         self.assertEqual(focal_keepalive.main(), 0)
+        _playing.assert_called_once_with(
+            [("51", "busy-focusrite"), ("52", "idle-focusrite")]
+        )
         run.assert_called_once()
         self.assertEqual(run.call_args.args[0][-2:], ["idle-focusrite", "-"])
 

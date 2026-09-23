@@ -13,6 +13,7 @@ FADE_SECONDS = 0.2
 DEFAULT_DURATION = 2.0
 DEFAULT_FREQUENCY = 20_000.0
 DEFAULT_VOLUME = 0.9  # Approximately -1 dBFS before downstream attenuation.
+ACTIVITY_SAMPLE_SECONDS = 1.0
 
 
 def arguments() -> argparse.Namespace:
@@ -74,46 +75,49 @@ def focusrite_sinks() -> list[tuple[str, str]]:
     return matches
 
 
-def active_sink_indexes(pactl_output: str) -> set[str]:
-    """Return sink indexes used by uncorked playback streams."""
-    active: set[str] = set()
-    sink_index: str | None = None
-    corked = False
-
-    def finish_block() -> None:
-        if sink_index is not None and not corked:
-            active.add(sink_index)
-
-    for line in pactl_output.splitlines():
-        if line.startswith("Sink Input #"):
-            finish_block()
-            sink_index = None
-            corked = False
-            continue
-        key, separator, value = line.strip().partition(":")
-        if not separator:
-            continue
-        if key.lower() == "sink":
-            sink_index = value.strip()
-        elif key.lower() == "corked":
-            corked = value.strip().lower() == "yes"
-    finish_block()
-    return active
-
-
-def playing_sink_indexes() -> set[str] | None:
-    """Return active sinks, or None when playback activity cannot be checked."""
+def sink_has_audio(sink_name: str) -> bool | None:
+    """Sample a sink monitor and report whether it contains a real signal."""
     try:
-        output = subprocess.run(
-            ["pactl", "list", "sink-inputs"],
+        result = subprocess.run(
+            [
+                "parec",
+                "--raw",
+                "--format=s16le",
+                f"--rate={RATE}",
+                "--channels=2",
+                "--latency-msec=50",
+                f"--device={sink_name}.monitor",
+            ],
             check=True,
             capture_output=True,
-            text=True,
-            timeout=2,
-        ).stdout
-    except (FileNotFoundError, subprocess.SubprocessError):
+            timeout=ACTIVITY_SAMPLE_SECONDS,
+        )
+        audio = result.stdout
+    except subprocess.TimeoutExpired as error:
+        audio = error.stdout or b""
+    except (FileNotFoundError, subprocess.CalledProcessError):
         return None
-    return active_sink_indexes(output)
+
+    # Conversion to signed 16-bit PCM removes insignificant floating-point
+    # noise while retaining even very quiet audible output.
+    audio = audio[: len(audio) - len(audio) % 2]
+    samples = array("h")
+    samples.frombytes(audio)
+    if sys.byteorder != "little":
+        samples.byteswap()
+    return any(samples)
+
+
+def playing_sink_indexes(sinks: list[tuple[str, str]]) -> set[str] | None:
+    """Return sinks emitting audio, or None when activity cannot be checked."""
+    playing: set[str] = set()
+    for sink_index, sink_name in sinks:
+        has_audio = sink_has_audio(sink_name)
+        if has_audio is None:
+            return None
+        if has_audio:
+            playing.add(sink_index)
+    return playing
 
 
 def pulse(frequency: float, duration: float) -> bytes:
@@ -144,7 +148,7 @@ def main() -> int:
     if not sinks:
         return 0
 
-    playing = playing_sink_indexes()
+    playing = playing_sink_indexes(sinks)
     if playing is None:
         return 0
 
