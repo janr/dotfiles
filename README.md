@@ -137,9 +137,21 @@ Kitty is unavailable, the script falls back to `x-terminal-emulator`.
 
 By default PDFs are uploaded to the cloud root. If a document with the same
 name already exists, the shortcut preserves it and its annotations by uploading
-the new copy as `name (1).pdf`, `name (2).pdf`, and so on. Set
-`REMARKABLE_DIR` in the Hyprland environment to upload to another existing
-cloud folder. The browser
+the new copy as `name (1).pdf`, `name (2).pdf`, and so on. Configure the
+destination for a particular machine in
+`~/.config/remarkable-push/config.toml`:
+
+```toml
+directory = "Papers"
+```
+
+The folder must already exist in reMarkable Cloud. Omit the file or leave
+`directory` empty to upload to the cloud root. `REMARKABLE_DIR` remains
+available as an environment override, and `REMARKABLE_CONFIG` can select a
+different config-file path. For arXiv papers, the shortcut retrieves the
+canonical paper title from arXiv metadata and uses it as the uploaded filename,
+falling back to the browser title or arXiv identifier if metadata is
+unavailable. The browser
 integration supports Zen/Firefox and Chromium-family browsers; it briefly
 focuses a matching PDF/arXiv window to copy its current URL, then restores the
 previous focus and clipboard. Downloads requiring browser cookies are not

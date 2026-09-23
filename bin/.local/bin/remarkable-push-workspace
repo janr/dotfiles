@@ -16,6 +16,24 @@ for command in hyprctl jq curl flock python3 wl-copy wl-paste; do
     command -v "$command" >/dev/null 2>&1 || fail "Missing required command: $command"
 done
 
+remarkable_dir=${REMARKABLE_DIR:-}
+config_file=${REMARKABLE_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/remarkable-push/config.toml}
+if [[ -z $remarkable_dir && -f $config_file ]]; then
+    if ! remarkable_dir=$(python3 - "$config_file" <<'PY'
+import sys
+import tomllib
+
+with open(sys.argv[1], "rb") as config_handle:
+    directory = tomllib.load(config_handle).get("directory", "")
+if not isinstance(directory, str):
+    raise TypeError("directory must be a string")
+print(directory)
+PY
+    ); then
+        fail "Could not read reMarkable configuration: $config_file"
+    fi
+fi
+
 rmapi=${REMARKABLE_RMAPI:-$HOME/.local/share/remarkable-push/bin/rmapi}
 if [[ ! -x $rmapi ]]; then
     rmapi=$(command -v rmapi 2>/dev/null || true)
@@ -52,7 +70,9 @@ cleanup() {
         fi
     fi
     if [[ -n $old_address ]]; then
-        hyprctl dispatch focuswindow "address:$old_address" >/dev/null 2>&1 || true
+        hyprctl dispatch \
+            "hl.dsp.focus({ window = \"address:$old_address\" })" \
+            >/dev/null 2>&1 || true
     fi
     rm -rf "$tmpdir"
 }
@@ -140,24 +160,51 @@ copy_browser_url() {
     local address=$1 value attempt sentinel
     command -v wl-paste >/dev/null 2>&1 || return 1
 
-    hyprctl dispatch focuswindow "address:$address" >/dev/null 2>&1 || return 1
+    hyprctl dispatch \
+        "hl.dsp.focus({ window = \"address:$address\" })" \
+        >/dev/null 2>&1 || return 1
     for attempt in 1 2 3; do
         # A sentinel prevents a missed Ctrl+C from reusing a stale PDF URL.
         sentinel="remarkable-url-$RANDOM-$attempt"
         printf '%s' "$sentinel" | wl-copy
-        hyprctl dispatch sendshortcut "CTRL,L,address:$address" >/dev/null 2>&1 || continue
+        hyprctl dispatch \
+            "hl.dsp.send_shortcut({ mods = \"CTRL\", key = \"L\", window = \"address:$address\" })" \
+            >/dev/null 2>&1 || continue
         sleep "0.$((attempt + 1))"
-        hyprctl dispatch sendshortcut "CTRL,C,address:$address" >/dev/null 2>&1 || continue
+        hyprctl dispatch \
+            "hl.dsp.send_shortcut({ mods = \"CTRL\", key = \"C\", window = \"address:$address\" })" \
+            >/dev/null 2>&1 || continue
         sleep "0.$((attempt + 2))"
         value=$(wl-paste --no-newline 2>/dev/null || true)
         if [[ $value != "$sentinel" && $value =~ ^(https?|file):// ]]; then
-            hyprctl dispatch sendshortcut ",escape,address:$address" >/dev/null 2>&1 || true
+            hyprctl dispatch \
+                "hl.dsp.send_shortcut({ mods = \"\", key = \"Escape\", window = \"address:$address\" })" \
+                >/dev/null 2>&1 || true
             printf '%s\n' "$value"
             return 0
         fi
     done
-    hyprctl dispatch sendshortcut ",escape,address:$address" >/dev/null 2>&1 || true
+    hyprctl dispatch \
+        "hl.dsp.send_shortcut({ mods = \"\", key = \"Escape\", window = \"address:$address\" })" \
+        >/dev/null 2>&1 || true
     return 1
+}
+
+arxiv_title() {
+    local arxiv_id=$1
+
+    curl --fail --silent --show-error --location --retry 2 --connect-timeout 15 \
+        --user-agent 'remarkable-push-workspace/1.0 (arXiv title lookup)' \
+        --get --data-urlencode "id_list=$arxiv_id" \
+        'https://export.arxiv.org/api/query' \
+        | python3 -c '
+import sys
+import xml.etree.ElementTree as ET
+
+root = ET.parse(sys.stdin).getroot()
+title = root.findtext("{http://www.w3.org/2005/Atom}entry/{http://www.w3.org/2005/Atom}title", "")
+print(" ".join(title.split()))
+'
 }
 
 source_pdf=''
@@ -200,6 +247,14 @@ if [[ -z $source_pdf ]]; then
                 source_title=$title
                 break
             fi
+
+            # arXiv abstract pages use "[ID] Paper title". This remains useful
+            # when a browser or compositor refuses synthetic address-bar keys.
+            if [[ $title =~ ^\[([0-9]{4}\.[0-9]{4,5}(v[0-9]+)?)\] ]]; then
+                source_url="https://arxiv.org/pdf/${BASH_REMATCH[1]}"
+                source_title=${title#*] }
+                break
+            fi
         fi
     done
 fi
@@ -232,9 +287,14 @@ PY
     candidate=$(basename "$url_path")
     candidate=${candidate%.pdf}
     [[ -n $candidate && $candidate != / ]] && name=$candidate
-    if [[ $normalized =~ ^https://arxiv\.org/pdf/ && -n $source_title ]]; then
-        paper_title=$(printf '%s' "$source_title" | sed -E \
-            's/^[[]PDF[]][[:space:]]*//; s/[[:space:]]+—[[:space:]]+(Zen Browser|Mozilla Firefox|Google Chrome)$//; s/[[:space:]]+\|[[:space:]]+arXiv.*$//; s/[.]pdf$//I')
+    if [[ $normalized =~ ^https://arxiv\.org/pdf/(.+)$ ]]; then
+        arxiv_id=${BASH_REMATCH[1]}
+        arxiv_id=${arxiv_id%.pdf}
+        paper_title=$(arxiv_title "$arxiv_id" 2>/dev/null || true)
+        if [[ -z $paper_title && -n $source_title ]]; then
+            paper_title=$(printf '%s' "$source_title" | sed -E \
+                's/^[[]PDF[]][[:space:]]*//; s/[[:space:]]+—[[:space:]]+(Zen Browser|Mozilla Firefox|Google Chrome)$//; s/[[:space:]]+\|[[:space:]]+arXiv.*$//; s/[.]pdf$//I')
+        fi
         [[ -n $paper_title ]] && name=$paper_title
     fi
 
@@ -255,8 +315,8 @@ upload="$tmpdir/$name.pdf"
 mv "$pdf" "$upload"
 
 upload_pdf() {
-    if [[ -n ${REMARKABLE_DIR:-} ]]; then
-        "$rmapi" put "$upload" "$REMARKABLE_DIR"
+    if [[ -n $remarkable_dir ]]; then
+        "$rmapi" put "$upload" "$remarkable_dir"
     else
         "$rmapi" put "$upload"
     fi
