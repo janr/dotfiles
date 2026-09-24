@@ -603,6 +603,25 @@ first_empty_workspace() {
     switch_empty_workspace first
 }
 
+open_terminal_first_empty() {
+    workspace="$(empty_workspace first)" || {
+        # With a full bank, stay on the current workspace.
+        exec "$@"
+    }
+
+    focus_workspace "$workspace" || return 1
+    refresh_waybar_workspaces
+
+    # Bind the new window to its destination, rather than relying on the
+    # workspace switch completing before the terminal creates its surface.
+    if [ "$workspace_api" = lua ]; then
+        command="$(jq -n --arg command "$*" '$command')"
+        hyprctl dispatch "hl.dsp.exec_cmd($command, { workspace = \"$workspace\" })"
+    else
+        hyprctl dispatch exec "[workspace $workspace] $*"
+    fi
+}
+
 last_empty_workspace() {
     switch_empty_workspace last
 }
@@ -700,11 +719,12 @@ case "$1" in
     prev) relative_workspace prev ;;
     next) relative_workspace next ;;
     first-empty) first_empty_workspace ;;
+    open-terminal-first-empty) shift; open_terminal_first_empty "$@" ;;
     last-empty) last_empty_workspace ;;
     move-first-empty) move_to_first_empty_workspace ;;
     move-last-empty) move_to_last_empty_workspace ;;
     swap-main) swap_current_bank_with_main ;;
     external-prev) external_relative_workspace prev ;;
     external-next) external_relative_workspace next ;;
-    *) echo "usage: $0 reconcile|watch|restart-watch|switch N|move N|prev|next|first-empty|last-empty|move-first-empty|move-last-empty|swap-main|external-prev|external-next" >&2; exit 2 ;;
+    *) echo "usage: $0 reconcile|watch|restart-watch|switch N|move N|prev|next|first-empty|last-empty|open-terminal-first-empty COMMAND|move-first-empty|move-last-empty|swap-main|external-prev|external-next" >&2; exit 2 ;;
 esac

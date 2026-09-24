@@ -72,6 +72,8 @@ Super-key driven workflow where possible.
   workspaces.
 - Supports `SUPER+Up/Down` for first/last empty workspace navigation on the
   focused display, and `SUPER+SHIFT+Up/Down` for moving the focused window there.
+- Opens a terminal on the first empty workspace of the focused display with
+  `SUPER+SHIFT+Enter`, or on the current workspace if none is empty.
 - Supports `SUPER+CTRL+R` to reload Hyprland, restart Waybar, restart
   hyprpaper, and restart the custom workspace watcher.
 - Uses `hyprpaper` with the bundled `dark_cubes.jpg` wallpaper as the fallback for all displays.

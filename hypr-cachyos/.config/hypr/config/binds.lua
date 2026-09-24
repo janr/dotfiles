@@ -35,6 +35,9 @@ hl.bind(mod .. " + mouse:273", hl.dsp.window.resize())
 
 -- Familiar applications and CachyOS widgets.
 hl.bind(mod .. " + Return", command(app .. TERMINAL))
+-- Launch directly: uwsm app starts the terminal in a separate scope, which
+-- prevents Hyprland's per-exec workspace rule from tracking its window.
+hl.bind(mod .. " + SHIFT + Return", command(workspace .. "open-terminal-first-empty " .. TERMINAL))
 hl.bind(mod .. " + E", command(app .. FILE_MANAGER))
 hl.bind(mod .. " + W", command(app .. BROWSER))
 hl.bind(mod .. " + C", command(app .. CALCULATOR))
