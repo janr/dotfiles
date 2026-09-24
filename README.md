@@ -179,7 +179,9 @@ automatically on CachyOS. Use `make dry-run-cachyos` or
 `make dry-run-ubuntu` to preview a specific profile explicitly.
 
 The CachyOS overlay deliberately leaves Noctalia in charge of the panel, while
-the `noctalia` package tracks its preferences. It replaces CachyOS's
+the `noctalia` package tracks its preferences. On session start it opens Kitty
+on laptop workspace 1, Zen on Acer workspace 10, and Slack on Samsung
+workspace 19, matching the current window layout. It replaces CachyOS's
 `config/{autostart,binds,monitors,variables,workspaces}.lua`; preserve the
 distribution versions before the first install:
 
