@@ -20,6 +20,8 @@ import tomllib
 DEFAULT_CONFIG = Path("~/.config/mic-pedal/config.toml").expanduser()
 SOCKET_NAME = "mic-pedal.sock"
 NOTIFICATION_ID = "84391"
+# User services do not necessarily inherit ~/.local/bin in PATH.
+DICTATE = str(Path(__file__).with_name("dictate"))
 
 
 @dataclass(frozen=True)
@@ -31,6 +33,7 @@ class Config:
     browser_patterns: tuple[str, ...]
     poll_interval: float
     notifications: bool
+    terminal_classes: tuple[str, ...] = ("kitty",)
 
 
 @dataclass
@@ -39,13 +42,18 @@ class PedalState:
 
     assistant: bool = False
     pressed: bool = False
+    dictating: bool = False
 
     @property
     def mode(self) -> str:
+        if self.dictating:
+            return "dictation"
         return "ptt" if self.assistant else "ptm"
 
     @property
     def muted(self) -> bool:
+        if self.dictating:
+            return False
         return not self.pressed if self.assistant else self.pressed
 
     def set_pressed(self, pressed: bool) -> bool:
@@ -81,6 +89,7 @@ def load_config(path: Path) -> Config:
         ),
         poll_interval=interval,
         notifications=bool(raw.get("notifications", True)),
+        terminal_classes=tuple(str(value).lower() for value in raw.get("terminal_classes", ("kitty",))),
     )
 
 
@@ -274,10 +283,57 @@ class Daemon:
                 pass
             self.device.close()
             self.device = None
-        self.state.set_pressed(False)
         self.apply_mute(True, force=True)
+        if self.state.dictating:
+            self.stop_dictation(cancel=True)
+        self.state.set_pressed(False)
         self.log(reason)
         self.next_device_attempt = time.monotonic() + 1
+
+    def terminal_focused(self) -> bool:
+        try:
+            result = subprocess.run(
+                ["hyprctl", "activewindow", "-j"], check=True,
+                capture_output=True, text=True, timeout=1,
+            )
+            window = json.loads(result.stdout)
+            return window.get("class", "").lower() in self.config.terminal_classes
+        except (OSError, ValueError, subprocess.SubprocessError):
+            return False
+
+    def start_dictation(self) -> bool:
+        try:
+            process = subprocess.Popen([DICTATE, "start"], stdout=subprocess.DEVNULL)
+            # Wait until the recorder has bound its control socket, so a quick
+            # pedal release cannot race ahead of the start process.
+            path = self.runtime_dir / "dictate.sock"
+            for _ in range(20):
+                if process.poll() is not None:
+                    self.log(f"dictation exited before recording (status {process.returncode})")
+                    return False
+                if path.exists():
+                    self.state.dictating = True
+                    self.apply_state()  # explicitly unmute even in assistant PTT mode
+                    return True
+                time.sleep(0.05)
+            process.terminate()
+            try:
+                process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+        except OSError as error:
+            self.log(f"could not start dictation: {error}")
+        return False
+
+    def stop_dictation(self, *, cancel: bool = False) -> None:
+        if not self.state.dictating:
+            return
+        self.state.dictating = False
+        try:
+            subprocess.run([DICTATE, "cancel" if cancel else "stop"], check=False, timeout=2)
+        except (OSError, subprocess.SubprocessError) as error:
+            self.log(f"could not stop dictation: {error}")
 
     def read_device(self, _fileobj: object, _mask: int) -> None:
         from evdev import ecodes
@@ -293,6 +349,11 @@ class Daemon:
             if event.value == 2:
                 continue
             if event.value in (0, 1) and self.state.set_pressed(event.value == 1):
+                if event.value == 1 and self.terminal_focused():
+                    if self.start_dictation():
+                        continue
+                if event.value == 0 and self.state.dictating:
+                    self.stop_dictation()
                 self.apply_state()
 
     def status(self) -> dict[str, object]:
@@ -311,7 +372,9 @@ class Daemon:
 
     def notify_status(self) -> None:
         status = self.status()
-        behavior = "released is muted" if self.state.assistant else "released is live"
+        behavior = "recording until release" if self.state.dictating else (
+            "released is muted" if self.state.assistant else "released is live"
+        )
         self.notify(
             f"MIC: {self.state.mode.upper()}",
             f"{behavior}; pedal {status['pedal']}; device {status['device']}",
@@ -369,6 +432,8 @@ class Daemon:
                     key.data(key.fileobj, mask)
         finally:
             self.apply_mute(True, force=True)
+            if self.state.dictating:
+                self.stop_dictation(cancel=True)
             if self.device is not None:
                 self.close_device("pedal stopped")
             if self.listener is not None:

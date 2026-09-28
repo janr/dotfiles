@@ -203,7 +203,10 @@ reloads the systemd user manager and enables and starts the timer automatically;
 ### Microphone footswitch
 
 The CachyOS profile includes `mic-pedal`, a user service for a momentary USB
-footswitch. Its normal behavior is push-to-mute: the microphone is live while
+footswitch. When a Kitty terminal is focused, hold the pedal to dictate into
+that terminal using local Whisper speech-to-text; release it to transcribe and
+type (without submitting). The mic is explicitly live during recording.
+Elsewhere, its normal behavior is push-to-mute: the microphone is live while
 the pedal is released and muted while it is held. When an active PipeWire
 capture belongs to Claude or ChatGPT, it automatically changes to
 push-to-talk: released is muted and held is live. Native clients are identified
@@ -239,7 +242,7 @@ This target prompts through `sudo`, installs the rule under
 so both its access ACL and libinput exclusion are applied. It installs only the
 device rule; use `make install-mic-pedal` for the complete controller setup.
 
-Configure the event key and detection patterns in
+Configure the event key, detection patterns, and terminal window classes in
 `~/.config/mic-pedal/config.toml`. This pedal emits `KEY_B`; the daemon grabs
 its keyboard endpoint exclusively, while the udev rule independently excludes
 it from libinput and creates `/dev/input/mic-pedal`. The pedal must emit
@@ -260,6 +263,46 @@ daemon explicitly applies mute/unmute rather than toggling
 state, serializes pedal events, mutes on disconnect and shutdown, and retries
 when the device is absent. It controls PipeWire clients only; it cannot mute an
 audio interface's direct-monitor path or software that bypasses PipeWire.
+
+### Local terminal dictation
+
+In a Kitty terminal, **hold the footswitch** to record, then release it to
+transcribe locally with whisper.cpp and type the result. This works with
+Codex, pi, Claude Code, or any other prompt in the terminal. Alternatively,
+`SUPER+SHIFT+D` toggles dictation in any focused text input: press once to
+record, then again to transcribe and type the result. It does **not**
+press Enter, modify the clipboard, or upload audio. A notification shows each
+stage; if focus changes before transcription finishes, the text is discarded
+rather than typed into a different window. Recording stops after two minutes
+if you forget to press the shortcut again.
+
+On CachyOS, install the optional tools and download an English model:
+
+```sh
+sudo pacman -S --needed whisper-cpp wtype libnotify
+mkdir -p ~/.local/share/whisper
+curl -fL --retry 2 -o ~/.local/share/whisper/ggml-base.en.bin \
+  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
+```
+
+`pw-record` is provided by PipeWire (already needed for the microphone).
+After Stowing the updated profile (`make restow`), reload Hyprland with
+`hyprctl reload` to activate the binding. The downloaded `base.en` model at
+`~/.local/share/whisper/ggml-base.en.bin` is the default; **no environment
+variable or additional config file is required**. To use a different model,
+set `DICTATE_MODEL=/absolute/path/to/ggml-*.bin` in the graphical session
+(and, for the footswitch, in the systemd user service environment, e.g. a
+`mic-pedal.service` drop-in). `base.en` is a reasonable starting point;
+`small.en` improves accuracy at the cost of more CPU and latency. Test the
+shortcut in an empty terminal prompt first. The footswitch explicitly unmutes
+while held in a terminal, even if assistant capture would otherwise select
+push-to-talk. On release, its normal microphone
+state resumes. Outside terminals, mute and assistant-detection behavior is
+unchanged. If another application is recording, it may also hear the
+microphone while you dictate. Set `terminal_classes` in
+`~/.config/mic-pedal/config.toml` to add other terminal window classes.
+Restart the user service after changing the script or config:
+`systemctl --user restart mic-pedal.service`.
 
 The CachyOS profile pins PipeWire to 44.1 kHz. To test different keepalive
 signals manually, specify frequency in hertz, linear volume, and duration in

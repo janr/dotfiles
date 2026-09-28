@@ -87,6 +87,9 @@ hl.bind("XF86AudioLowerVolume", command(noctalia .. "volume-down"), { locked = t
 hl.bind("XF86AudioMute", command(noctalia .. "volume-mute"), { locked = true })
 hl.bind("XF86AudioMicMute", command(noctalia .. "mic-mute"), { locked = true })
 hl.bind(mod .. " + SHIFT + F13", command("mic-pedal status"))
+-- Toggle local speech-to-text; the second press stops recording and types into
+-- the original focused window (without submitting the prompt).
+hl.bind(mod .. " + SHIFT + D", command("dictate"))
 hl.bind("XF86AudioPlay", command(noctalia .. "media toggle"), { locked = true })
 hl.bind("XF86AudioPause", command(noctalia .. "media toggle"), { locked = true })
 hl.bind("XF86AudioNext", command(noctalia .. "media next"), { locked = true })

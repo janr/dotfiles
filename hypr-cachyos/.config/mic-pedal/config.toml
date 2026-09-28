@@ -4,6 +4,8 @@ pedal_key = "KEY_B"
 pipewire_target = "@DEFAULT_AUDIO_SOURCE@"
 poll_interval = 0.5
 notifications = true
+# Only these Hyprland window classes turn the pedal into press-to-dictate.
+terminal_classes = ["kitty"]
 
 # Match native capture-client metadata. For browser-based assistants, these
 # are matched against the active Hyprland window while the browser is recording.
