@@ -36,7 +36,7 @@ end = [ "dictation" ]
 # targets whichever monitor currently has focus so popups don't appear on
 # every display. An empty list falls back to Noctalia's own default of
 # showing on all monitors.
-monitors = [ "DP-8" ]
+monitors = [ "DP-7" ]
 
 [shell]
 clipboard_image_action_command = "satty -f -"
