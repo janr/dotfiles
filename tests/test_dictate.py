@@ -76,6 +76,54 @@ class DictationTests(unittest.TestCase):
                 dictate.insert_text("hello", submit=True)
             run.assert_called_once()
 
+    def test_status_is_recording_then_transcribing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            status = Path(directory) / "dictate.status"
+            server = MagicMock()
+            server.accept.return_value = (MagicMock(), None)
+            server.accept.return_value[0].recv.return_value = b"stop"
+            recording = MagicMock(returncode=0)
+            recording.poll.return_value = 0
+            states = []
+            def transcribe(_wav, _output):
+                states.append(status.read_text().split()[1])
+                return "hello"
+            def insert(_text, *, submit):
+                states.append(status.read_text().split()[1])
+            with patch.object(dictate, "active_window", return_value="0x1"), \
+                 patch.object(dictate, "validate_recording"), \
+                 patch.object(dictate, "transcribe", side_effect=transcribe), \
+                 patch.object(dictate, "insert_text", side_effect=insert), \
+                 patch.object(dictate, "notify"), \
+                 patch.object(dictate.subprocess, "Popen", return_value=recording), \
+                 patch.object(dictate, "tempfile") as temp:
+                temp.TemporaryDirectory.return_value.__enter__.return_value = directory
+                def recv(_size):
+                    states.append(status.read_text().split()[1])
+                    return b"stop"
+                server.accept.return_value[0].recv.side_effect = recv
+                dictate.record_and_insert(server, submit=True, status=status)
+            self.assertEqual(states, ["recording", "transcribing", "transcribing"])
+
+    def test_successful_dictation_is_silent(self):
+        with tempfile.TemporaryDirectory() as directory:
+            server = MagicMock()
+            server.accept.return_value = (MagicMock(), None)
+            server.accept.return_value[0].recv.return_value = b"stop"
+            recording = MagicMock(returncode=0)
+            recording.poll.return_value = 0
+            with patch.object(dictate, "active_window", return_value="0x1"), \
+                 patch.object(dictate, "validate_recording"), \
+                 patch.object(dictate, "transcribe", return_value="hello"), \
+                 patch.object(dictate, "insert_text") as insert, \
+                 patch.object(dictate, "notify") as notify, \
+                 patch.object(dictate.subprocess, "Popen", return_value=recording), \
+                 patch.object(dictate, "tempfile") as temp:
+                temp.TemporaryDirectory.return_value.__enter__.return_value = directory
+                dictate.record_and_insert(server, submit=True)
+            insert.assert_called_once_with("hello", submit=True)
+            notify.assert_not_called()
+
     def test_focus_change_discards_text(self):
         with tempfile.TemporaryDirectory() as directory:
             model = Path(directory) / "model.bin"

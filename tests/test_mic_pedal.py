@@ -77,6 +77,16 @@ class DetectionTests(unittest.TestCase):
             run.return_value.stdout = '{"class": "firefox", "title": "kitty"}'
             self.assertFalse(daemon.terminal_focused())
 
+    def test_mode_change_does_not_notify(self):
+        daemon = mic_pedal.Daemon(self.config, Path("/tmp"))
+        with patch.object(daemon.detector, "detect", return_value=True), \
+             patch.object(daemon, "apply_state"), \
+             patch.object(daemon, "notify") as notify, \
+             patch.object(daemon, "log"):
+            daemon.update_assistant()
+        self.assertTrue(daemon.state.assistant)
+        notify.assert_not_called()
+
     def test_pedal_press_and_release_latches_dictation(self):
         daemon = mic_pedal.Daemon(self.config, Path("/tmp"))
         daemon.device = MagicMock()

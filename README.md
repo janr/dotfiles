@@ -273,10 +273,16 @@ submit a partial prompt. This works with Codex, pi, Claude Code, or any other
 prompt in the terminal. Alternatively, `SUPER+SHIFT+D` toggles dictation in
 any focused text input: press once to record, then again to transcribe and
 type the result without a final Enter. Dictation does not modify the clipboard
-or upload audio. A notification shows each
-stage; if focus changes before transcription finishes, the text is discarded
-rather than typed into a different window. Recording stops after two minutes
-if you forget to press the shortcut again.
+or upload audio. Routine recording, transcription, insertion, and pedal mode
+changes are silent; errors and discarded transcripts still notify. If focus
+changes before transcription finishes, the text is discarded rather than
+typed into a different window. Recording stops after two minutes if you forget
+to press the shortcut again. Noctalia shows a red recording circle while
+capturing and a pencil while transcribing, then hides the indicator when idle.
+The local Noctalia plugin is installed with `make restow`; enable it once with
+`noctalia msg plugins enable dotfiles/dictation` and reload the bar with
+`noctalia msg config-reload`. It reads a short-lived status file under
+`$XDG_RUNTIME_DIR` and does not use notifications.
 
 On CachyOS, install the optional tools and download an English model:
 

@@ -241,10 +241,6 @@ class Daemon:
             return
         self.last_detection_error = None
         if self.state.set_assistant(assistant):
-            if assistant:
-                self.notify("MIC: PUSH TO TALK", "Assistant capture detected; released is muted")
-            else:
-                self.notify("MIC: PUSH TO MUTE", "Default mode; released is live")
             self.log(f"mode changed to {self.state.mode}")
         self.apply_state()
 

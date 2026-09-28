@@ -72,7 +72,15 @@ def insert_text(text: str, *, submit: bool = False) -> None:
         subprocess.run(["wtype", "-k", "Return"], check=True, timeout=30)
 
 
-def record_and_insert(server: socket.socket, *, submit: bool = False) -> None:
+def write_status(path: Path, state: str) -> None:
+    """Publish a complete status update for the bar without partial reads."""
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(f"{os.getpid()} {state}\n")
+    os.replace(temporary, path)
+
+
+def record_and_insert(server: socket.socket, *, submit: bool = False,
+                      status: Path | None = None) -> None:
     window = active_window()
     if not window:
         raise RuntimeError("No focused window")
@@ -85,7 +93,8 @@ def record_and_insert(server: socket.socket, *, submit: bool = False) -> None:
                                           "--format", "s16", str(wav)],
                                          stdout=subprocess.DEVNULL, stderr=errors)
         try:
-            notify("Dictation: recording", "Release the pedal or press the shortcut again")
+            if status is not None:
+                write_status(status, "recording")
             server.settimeout(MAX_SECONDS)
             try:
                 connection, _ = server.accept()
@@ -95,7 +104,7 @@ def record_and_insert(server: socket.socket, *, submit: bool = False) -> None:
                         raise RuntimeError("Invalid dictation command")
                     cancelled = command == b"cancel"
             except socket.timeout:
-                notify("Dictation: time limit reached", "Transcribing now")
+                pass  # automatically transcribe when the recording limit is reached
         finally:
             if recording.poll() is None:
                 recording.send_signal(signal.SIGINT)  # let pw-record finalize the WAV header
@@ -109,17 +118,16 @@ def record_and_insert(server: socket.socket, *, submit: bool = False) -> None:
         validate_recording(wav, recording.returncode, log)
         # No more stop requests should be accepted during inference.
         server.close()
-        notify("Dictation: transcribing")
+        if status is not None:
+            write_status(status, "transcribing")
         text = transcribe(wav, Path(directory) / "speech")
         if not text:
-            notify("Dictation: no speech detected")
             return
         if active_window() != window:
             notify("Dictation: not inserted", "Focus changed; transcript discarded")
             return
         # Type rather than paste: no clipboard modification or premature submission.
         insert_text(text, submit=submit)
-        notify("Dictation: inserted")
 
 
 def main() -> int:
@@ -172,7 +180,11 @@ def main() -> int:
             server.bind(path)
             os.chmod(path, 0o600)
             server.listen(1)
-            record_and_insert(server, submit=args.submit)
+            status = Path(runtime) / "dictate.status"
+            try:
+                record_and_insert(server, submit=args.submit, status=status)
+            finally:
+                status.unlink(missing_ok=True)
         except (OSError, RuntimeError, subprocess.SubprocessError, ValueError,
                 json.JSONDecodeError, KeyboardInterrupt) as error:
             print(f"dictate: {error}", file=sys.stderr)

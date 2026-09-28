@@ -1,0 +1,11 @@
+id = "dotfiles/dictation"
+name = "Dictation status"
+version = "1.0.0"
+plugin_api = 3
+author = "dotfiles"
+license = "MIT"
+description = "Silent recording and transcription indicator for local dictation."
+
+[[widget]]
+id = "status"
+entry = "status.luau"
