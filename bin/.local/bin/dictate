@@ -7,6 +7,7 @@ import argparse
 import fcntl
 import json
 import os
+import re
 import shutil
 from pathlib import Path
 import signal
@@ -58,7 +59,20 @@ def validate_recording(wav: Path, returncode: int, log: Path) -> None:
     )
 
 
-def record_and_insert(server: socket.socket) -> None:
+def insert_text(text: str, *, submit: bool = False) -> None:
+    """Type transcript lines without letting an embedded newline submit a prompt."""
+    parts = re.split(r"\r\n|\r|\n", text)
+    for index, part in enumerate(parts):
+        if part:
+            subprocess.run(["wtype", "--", part], check=True, timeout=30)
+        if index < len(parts) - 1:
+            subprocess.run(["wtype", "-M", "shift", "-k", "Return", "-m", "shift"],
+                           check=True, timeout=30)
+    if submit:
+        subprocess.run(["wtype", "-k", "Return"], check=True, timeout=30)
+
+
+def record_and_insert(server: socket.socket, *, submit: bool = False) -> None:
     window = active_window()
     if not window:
         raise RuntimeError("No focused window")
@@ -103,15 +117,17 @@ def record_and_insert(server: socket.socket) -> None:
         if active_window() != window:
             notify("Dictation: not inserted", "Focus changed; transcript discarded")
             return
-        # Type rather than paste: no clipboard modification or accidental Enter in an agent.
-        subprocess.run(["wtype", "--", text], check=True, timeout=30)
+        # Type rather than paste: no clipboard modification or premature submission.
+        insert_text(text, submit=submit)
         notify("Dictation: inserted")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", nargs="?", choices=("toggle", "start", "stop", "cancel"), default="toggle")
-    action = parser.parse_args().action
+    parser.add_argument("--submit", action="store_true", help="press Enter after typing the transcript")
+    args = parser.parse_args()
+    action = args.action
     runtime = os.environ.get("XDG_RUNTIME_DIR")
     if not runtime:
         print("dictate: XDG_RUNTIME_DIR is not set", file=sys.stderr)
@@ -156,7 +172,7 @@ def main() -> int:
             server.bind(path)
             os.chmod(path, 0o600)
             server.listen(1)
-            record_and_insert(server)
+            record_and_insert(server, submit=args.submit)
         except (OSError, RuntimeError, subprocess.SubprocessError, ValueError,
                 json.JSONDecodeError, KeyboardInterrupt) as error:
             print(f"dictate: {error}", file=sys.stderr)

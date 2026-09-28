@@ -267,11 +267,13 @@ audio interface's direct-monitor path or software that bypasses PipeWire.
 ### Local terminal dictation
 
 In a Kitty terminal, **hold the footswitch** to record, then release it to
-transcribe locally with whisper.cpp and type the result. This works with
-Codex, pi, Claude Code, or any other prompt in the terminal. Alternatively,
-`SUPER+SHIFT+D` toggles dictation in any focused text input: press once to
-record, then again to transcribe and type the result. It does **not**
-press Enter, modify the clipboard, or upload audio. A notification shows each
+transcribe locally with whisper.cpp, type the result, and press Enter to
+submit it. Internal line breaks are typed as Shift+Enter, so they do not
+submit a partial prompt. This works with Codex, pi, Claude Code, or any other
+prompt in the terminal. Alternatively, `SUPER+SHIFT+D` toggles dictation in
+any focused text input: press once to record, then again to transcribe and
+type the result without a final Enter. Dictation does not modify the clipboard
+or upload audio. A notification shows each
 stage; if focus changes before transcription finishes, the text is discarded
 rather than typed into a different window. Recording stops after two minutes
 if you forget to press the shortcut again.

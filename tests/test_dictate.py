@@ -41,6 +41,41 @@ class DictationTests(unittest.TestCase):
                 self.assertIn("-otxt", args)
                 self.assertEqual(args[args.index("-of") + 1], str(output))
 
+    def test_multiline_transcript_uses_shift_enter_then_submits_once(self):
+        with patch.object(dictate.subprocess, "run") as run:
+            dictate.insert_text("first\r\nsecond\rthird\nfourth", submit=True)
+        self.assertEqual([call.args[0] for call in run.call_args_list], [
+            ["wtype", "--", "first"],
+            ["wtype", "-M", "shift", "-k", "Return", "-m", "shift"],
+            ["wtype", "--", "second"],
+            ["wtype", "-M", "shift", "-k", "Return", "-m", "shift"],
+            ["wtype", "--", "third"],
+            ["wtype", "-M", "shift", "-k", "Return", "-m", "shift"],
+            ["wtype", "--", "fourth"],
+            ["wtype", "-k", "Return"],
+        ])
+
+    def test_shortcut_does_not_submit_and_preserves_blank_lines(self):
+        with patch.object(dictate.subprocess, "run") as run:
+            dictate.insert_text("hello\n\nworld")
+        self.assertEqual([call.args[0] for call in run.call_args_list], [
+            ["wtype", "--", "hello"],
+            ["wtype", "-M", "shift", "-k", "Return", "-m", "shift"],
+            ["wtype", "-M", "shift", "-k", "Return", "-m", "shift"],
+            ["wtype", "--", "world"],
+        ])
+
+    def test_single_line_submission_and_failed_typing(self):
+        with patch.object(dictate.subprocess, "run") as run:
+            dictate.insert_text("hello", submit=True)
+            self.assertEqual([call.args[0] for call in run.call_args_list],
+                             [["wtype", "--", "hello"], ["wtype", "-k", "Return"]])
+            run.reset_mock()
+            run.side_effect = OSError("typing failed")
+            with self.assertRaises(OSError):
+                dictate.insert_text("hello", submit=True)
+            run.assert_called_once()
+
     def test_focus_change_discards_text(self):
         with tempfile.TemporaryDirectory() as directory:
             model = Path(directory) / "model.bin"

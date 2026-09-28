@@ -104,7 +104,7 @@ class DetectionTests(unittest.TestCase):
             popen.return_value.returncode = 1
             with patch.object(daemon, "log"):
                 self.assertFalse(daemon.start_dictation())
-            self.assertEqual(popen.call_args.args[0], [mic_pedal.DICTATE, "start"])
+            self.assertEqual(popen.call_args.args[0], [mic_pedal.DICTATE, "start", "--submit"])
             daemon.state.dictating = True
             daemon.stop_dictation()
             self.assertEqual(run.call_args.args[0], [mic_pedal.DICTATE, "stop"])

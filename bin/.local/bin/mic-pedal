@@ -303,7 +303,7 @@ class Daemon:
 
     def start_dictation(self) -> bool:
         try:
-            process = subprocess.Popen([DICTATE, "start"], stdout=subprocess.DEVNULL)
+            process = subprocess.Popen([DICTATE, "start", "--submit"], stdout=subprocess.DEVNULL)
             # Wait until the recorder has bound its control socket, so a quick
             # pedal release cannot race ahead of the start process.
             path = self.runtime_dir / "dictate.sock"
