@@ -11,3 +11,5 @@ alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo
 alias jellyfin='feishin'
 
 alias vim='nvim'
+
+[ "$TERM" = "xterm-kitty" ] && alias ssh="kitten ssh"
